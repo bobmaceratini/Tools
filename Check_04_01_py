@@ -1,0 +1,23 @@
+import numpy as np
+from RMKinematicTools import *
+from RMAttitudeStaticDeterminationTools import *
+
+v1_b = np.array([0.8273, 0.5541, -0.0920])
+v2_b = np.array([-0.8285, 0.5522, -0.0955])
+v1_r = np.array([-0.1517, -0.9669, 0.2050])
+v2_r = np.array([-0.8393, 0.4494, -0.3044])
+
+DCM = Triad2DCM(v1_b, v2_b, v1_r, v2_r)
+print("Direction Cosine Matrix (DCM):")
+print(DCM)
+
+BN_est = np.array([[0.969846, 0.17101, 0.173648],
+                 [-0.200706, 0.96461, 0.17101],
+                 [-0.138258, -0.200706, 0.969846]])
+BN_true = np.array([[0.963592, 0.187303, 0.190809],
+                    [-0.223042, 0.956645, 0.187303],
+                    [-0.147454, -0.223042, 0.963592]])
+
+error_angle = DCM2Angle(BN_est @ BN_true.T)
+print(f"Attitude estimation error angle (radians): {error_angle}")  
+print(f"Attitude estimation error angle (degrees): {np.degrees(error_angle)}")
