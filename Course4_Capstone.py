@@ -80,39 +80,70 @@ def get_Delta_rMO(time):
 
 def get_RcN(time):
     Delta_r = get_Delta_rMO(time)
-    rc1 = Delta_r / np.linalg.norm(Delta_r)
-    rc2 = np.cross(rc1, np.array([0,0,1]))
+    rc1 = -Delta_r / np.linalg.norm(Delta_r)
+    rc2 = np.cross(Delta_r, np.array([0,0,1]))
     rc2 = rc2 / np.linalg.norm(rc2)
     rc3 = np.cross(rc1, rc2)   
     rc3 = rc3 / np.linalg.norm(rc3) 
     RcN = np.column_stack((rc1, rc2, rc3))
+    RcN = RcN.T
     return RcN
 
+def get_wRcN(time,Delta_t):
+    R_k = get_RcN(time)
+    R_k1 = get_RcN(time + Delta_t)
+    R_k1_k = R_k1 @ R_k.T
+    s = DCM2MRP(R_k1_k)
+    wRcN_B = (4/Delta_t) * s  
+    wRcN_N = R_k.T @ wRcN_B
+    return wRcN_N
+    
+def get_wRcN2(time,Delta_t):
+    R_k = get_RcN(time)
+    R_k1 = get_RcN(time + Delta_t)
+    sk = DCM2MRP(R_k)
+    sk1 = DCM2MRP(R_k1)
+    sigdot = (sk1 - sk) / Delta_t
+    wRcN_B = MRP_InvDifferential(sk,sigdot)
+    wRcN_N = R_k.T @ wRcN_B
+    return wRcN_N
+    
+
+def printfile(filename,data):
+    with open(filename, "w") as f:
+    # Flatten della matrice e scrittura su una riga
+        f.write(" ".join(f"{x:.7f}" for x in data.flatten()))
+    return
 
 # Task 1
 t = 450  # time in seconds for Nano Spacecraft
 PLMO = get_position(rLMO, OmLMO, iLMO, wLMO, t, tetaLMO_0)
 print("---------------------------------------------------")
-print("Mod 2 Task 1 - Position of Nano Spacecraft at t=450s (km): ", PLMO)
+print("Task 1.1 - Position of Nano Spacecraft at t=450s (km): ", PLMO)
+printfile("Task1p1.txt",PLMO)
 
 VLMO = get_velocity(rLMO, OmLMO, iLMO, wLMO, t, tetaLMO_0)
 print("---------------------------------------------------")
-print("Mod 2 Task 1 - Velocity of Nano Spacecraft at t=450s (km/s): ", VLMO)
+print("Task 1.2 - Velocity of Nano Spacecraft at t=450s (km/s): ", VLMO)
+printfile("Task1p2.txt",VLMO)
 
 t = 1150  # time in seconds for Mother Spacecraft
 PGMO = get_position(rGMO, OmGMO, iGMO, wGMO, t, tetaGMO_0)
 print("---------------------------------------------------")
-print("Mod 2 Task 1 - Position of Mother Spacecraft at t=1150s (km): ", PGMO)
+print("Task 1.3 - Position of Mother Spacecraft at t=1150s (km): ", PGMO)
+printfile("Task1p3.txt",PGMO)
 
 VGMO = get_velocity(rGMO, OmGMO, iGMO, wGMO, t, tetaGMO_0)
 print("---------------------------------------------------")
-print("Mod 2 Task 1 - Velocity of Mother Spacecraft at t=1150s (km/s): ", VGMO)
+print("Task 1.4 - Velocity of Mother Spacecraft at t=1150s (km/s): ", VGMO)
+printfile("Task1p4.txt",VGMO)
 
 # Task 2
 t = 300  # time in seconds
 DCM = get_DCM(OmLMO, iLMO, wLMO, t, tetaLMO_0)
 print("---------------------------------------------------")    
 print("Mod 2 Task 2 - DCM of Nano Spacecraft at t=300s: \n", DCM)
+printfile("Task2p1.txt",DCM)
 
 # Task 3
 
@@ -121,13 +152,22 @@ t = 330  # time in seconds
 RnN = get_RnN(t)
 print("---------------------------------------------------")
 print("Task 4 - Matrix RnN at t=330s : \n", RnN)
+printfile("Task4p1.txt",RnN)
 
 wRnN = get_wRnN(t)
 print("---------------------------------------------------")
 print("Task 4 - RnN angular velocity at t=330s (rad/s): \n", wRnN)
+printfile("Task4p2.txt",wRnN)
 
 # Task 5
 t = 330  # time in seconds
 RcN = get_RcN(t)
 print("---------------------------------------------------")
 print(f"Task 5 - Matrix RcN at t={t}s: \n", RcN)
+printfile("Task5p1.txt",RcN)
+
+wRcN = get_wRcN(t,0.01)
+print("---------------------------------------------------")
+print(f"Task 5 - RcN angular velocity at t={t}s (rad/s): \n", wRcN)
+printfile("Task5p2.txt",wRcN)
+
