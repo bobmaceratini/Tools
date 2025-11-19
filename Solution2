@@ -1,0 +1,158 @@
+import numpy as np
+
+# --- Utilities ---
+def skew(v):
+    return np.array([[0, -v[2], v[1]],
+                     [v[2], 0, -v[0]],
+                     [-v[1], v[0], 0]])
+
+def Bmat_MRP(sigma):
+    s2 = np.dot(sigma, sigma)
+    return (1 - s2) * np.eye(3) + 2 * skew(sigma) + 2 * np.outer(sigma, sigma)
+
+def mrp_shadow_if_needed(sigma):
+    n = np.linalg.norm(sigma)
+    if n > 1.0:
+        return -sigma / (n**2)
+    return sigma
+
+def add_mrp(sigma_A, sigma_B):
+    # Composition: sigma_C = sigma_B ⊕ sigma_A
+    sA2 = np.dot(sigma_A, sigma_A)
+    sB2 = np.dot(sigma_B, sigma_B)
+    denom = 1 - sA2 * sB2 + 2 * np.dot(sigma_B, sigma_A)
+    num = ( (1 - sB2) * sigma_A + (1 - sA2) * sigma_B + 2 * np.cross(sigma_B, sigma_A) )
+    sigma_C = num / denom
+    return mrp_shadow_if_needed(sigma_C)
+
+def dcm_from_mrp(sigma):
+    s2 = np.dot(sigma, sigma)
+    I3 = np.eye(3)
+    Sx = skew(sigma)
+    num = (8 * np.outer(sigma, sigma) - 4 * (1 - s2) * Sx + (1 - s2)**2 * I3)
+    den = (1 + s2)**2
+    return num / den
+
+# --- Reference trajectory ---
+def sigma_RN(t, f=0.05):
+    return np.array([0.2 * np.sin(f*t),
+                     0.3 * np.cos(f*t),
+                    -0.3 * np.sin(f*t)])
+
+def sigma_dot_RN(t, f=0.05):
+    return np.array([0.2 * f * np.cos(f*t),
+                    -0.3 * f * np.sin(f*t),
+                    -0.3 * f * np.cos(f*t)])
+
+def sigma_ddot_RN(t, f=0.05):
+    return np.array([-0.2 * f**2 * np.sin(f*t),
+                     -0.3 * f**2 * np.cos(f*t),
+                      0.3 * f**2 * np.sin(f*t)])
+
+def omega_RN_from_sigma(t):
+    sR = sigma_RN(t)
+    sRdot = sigma_dot_RN(t)
+    B = Bmat_MRP(sR)
+    # sigma_dot = 1/4 B sigma * omega  ->  omega = 4 * B^{-1} * sigma_dot
+    omega = 4.0 * np.linalg.solve(B, sRdot)
+    return omega
+
+# For ω̇_R/N, use finite difference of ω_R/N (robust for general sR(t))
+def omega_RN_dot_fd(t, h):
+    return (omega_RN_from_sigma(t + h) - omega_RN_from_sigma(t - h)) / (2*h)
+
+# --- Dynamics ---
+def attitude_kinematics(sigma, omega):
+    return 0.25 * Bmat_MRP(sigma) @ omega
+
+def rigid_body_dynamics(omega, u, I):
+    return np.linalg.solve(I, (u - skew(omega) @ (I @ omega)))
+
+# --- Control ---
+def control_u(sigma_BR, omega_BR, omega_BN, I, K, P, omega_RN, omega_RN_dot, L=np.zeros(3)):
+    return (-K * sigma_BR
+            - P * omega_BR
+            + I @ (omega_RN_dot - np.cross(omega_BN, omega_RN))
+            + skew(omega_BN) @ (I @ omega_BN)
+            - L)
+
+# --- Simulation ---
+def simulate_tracking(T=120.0, h=0.01):
+    # Inertias
+    I = np.diag([100.0, 75.0, 80.0])
+    # Gains
+    K = 5.0
+    P = 10.0
+
+    # Initial states
+    sigma_BN = np.array([0.1, 0.2, -0.1], dtype=float)
+    omega_BN = np.deg2rad(np.array([30.0, 10.0, -20.0], dtype=float))
+
+    # Disturbance
+    L = np.zeros(3)
+
+    t = 0.0
+    err_norm_at_40 = None
+
+    # Precompute ω_RN_dot FD stencil half-step
+    fd_eps = h
+
+    while t <= T + 1e-12:
+        # Reference
+        sR = sigma_RN(t)
+        sR = mrp_shadow_if_needed(sR)
+        wR = omega_RN_from_sigma(t)
+        wRdot = omega_RN_dot_fd(t, fd_eps)
+
+        # Relative attitude B/R
+        sigma_BR = add_mrp(sigma_BN, -sR)
+        C_BR = dcm_from_mrp(sigma_BR)
+        omega_BR = omega_BN - C_BR @ wR
+
+        # Control
+        u = control_u(sigma_BR, omega_BR, omega_BN, I, K, P, wR, wRdot, L)
+
+        # State derivative function for RK4
+        def f(state, t_local):
+            s = mrp_shadow_if_needed(state[:3])
+            w = state[3:]
+
+            # Reference at t_local for better RK4 accuracy
+            sR_loc = mrp_shadow_if_needed(sigma_RN(t_local))
+            wR_loc = omega_RN_from_sigma(t_local)
+            wRdot_loc = omega_RN_dot_fd(t_local, fd_eps)
+
+            sigma_BR_loc = add_mrp(s, -sR_loc)
+            C_BR_loc = dcm_from_mrp(sigma_BR_loc)
+            omega_BR_loc = w - C_BR_loc @ wR_loc
+
+            u_loc = control_u(sigma_BR_loc, omega_BR_loc, w, I, K, P, wR_loc, wRdot_loc, L)
+
+            sdot = attitude_kinematics(s, w)
+            wdot = rigid_body_dynamics(w, u_loc, I)
+            return np.hstack((sdot, wdot))
+
+        x = np.hstack((sigma_BN, omega_BN))
+        k1 = f(x, t)
+        k2 = f(x + 0.5*h*k1, t + 0.5*h)
+        k3 = f(x + 0.5*h*k2, t + 0.5*h)
+        k4 = f(x + h*k3, t + h)
+        x_next = x + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+
+        sigma_BN = mrp_shadow_if_needed(x_next[:3])
+        omega_BN = x_next[3:]
+
+        # Tracking error norm at 40s: |σ_B/R|
+        if err_norm_at_40 is None and t + h >= 40.0 - 1e-9:
+            sR_40 = mrp_shadow_if_needed(sigma_RN(t + h))
+            sigma_BR_40 = add_mrp(sigma_BN, -sR_40)
+            err_norm_at_40 = np.linalg.norm(sigma_BR_40)
+
+        t += h
+
+    return err_norm_at_40
+
+if __name__ == "__main__":
+    val_40s = simulate_tracking(T=120.0, h=0.01)
+    print(f"|sigma_B/R| at 40 s: {val_40s:.6f}")
+

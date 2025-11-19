@@ -1,47 +1,40 @@
 import numpy as np
-from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from RMAttitudeStaticDeterminationTools import *
+from RMKineticsTools import *
+from RMIntegrationTools import *
+from RMKinematicTools import *
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.transform import Rotation as R
+from RMKinematicTools import *
 
-# Parametri iniziali
-initial_angles_deg = np.array([40, 30, 80])
-initial_angles_rad = np.radians(initial_angles_deg)
-deg2rad = np.pi / 180
-omega_scale = 20 * deg2rad
 
-# Equazioni differenziali per 3-2-1
-def euler_321_kinematics(t, angles):
-    psi, theta, phi = angles
-    omega_b = omega_scale * np.array([
-        np.sin(0.1 * t)*0+1,
-        np.sin(0.1 * t)*0,
-        np.sin(0.1 * t)*0
-    ])
-    c_theta = np.cos(theta)
-    s_theta = np.sin(theta)
-    t_theta = np.tan(theta)
-    c_phi = np.cos(phi)
-    s_phi = np.sin(phi)
-    T = np.array([
-        [0, s_phi / c_theta, c_phi / c_theta],
-        [0, c_phi, -s_phi],
-        [1, s_phi * t_theta, c_phi * t_theta]
-    ])
-    return T @ omega_b
+#Initial parameters
+sigma0 = np.array([0.1, 0.2, -0.1])
+#sigma0 = np.array([0.0, 0.0, 0.0])
+#inital_W_BM_degps = np.array([0.0, 0.0, 0.0])
+inital_W_BM_degps = np.array([30.0, 10.0, -20.0])
+omega0 = inital_W_BM_degps/180*np.pi
+Inertia_vet = np.array([100.0,75.0,80.0])
+InertiaTensor = np.array([[Inertia_vet[0],0,0],[0,Inertia_vet[1],0,],[0,0,Inertia_vet[2]]])
+K = 5
+P = 10
 
-# Integrazione
-t_eval = np.arange(0, 60.1, 0.1)
-sol = solve_ivp(euler_321_kinematics, (0, 60), initial_angles_rad, t_eval=t_eval, method='RK45')
-angles = sol.y.T  # shape: (N, 3)
+print(f"initial MRP: {sigma0}")
+print(f"Initial Omega [dag/s]: {inital_W_BM_degps}")
+print(f"Inertia Tensor Body Frame:\n {InertiaTensor}")
 
-# Estrai gli angoli dal risultato dell'integrazione
-psi_vals = sol.y[0]
-theta_vals = sol.y[1]
-phi_vals = sol.y[2]
+#Simulation
+t_eval = np.arange(0, 120.1, 0.1)
+sigma,omega,angles = EOM_Rotation_RMP_Integrator(InertiaTensor,sigma0, omega0, t_eval)
 
-print(f"Norma degli angoli a t=42s: {np.linalg.norm(sol.y[:, np.where(np.isclose(t_eval, 42.0))[0][0]]):.4f} rad")
+print(f"Norma of sigma whtn t=30s:  {np.linalg.norm(sigma[np.where(np.isclose(t_eval,30.0))[0][0]]):.4f}")
+
+
+psi_vals = angles[:,0]
+theta_vals = angles[:,1]
+phi_vals = angles[:,2]
 
 
 # Crea il grafico
@@ -53,6 +46,20 @@ plt.plot(t_eval, phi_vals, label='Roll (ϕ)', color='orange')
 plt.xlabel('Tempo [s]')
 plt.ylabel('Angoli [rad]')
 plt.title('Evoluzione degli angoli di Eulero (3-2-1)')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Crea il grafico
+plt.figure(figsize=(10, 6))
+plt.plot(t_eval, sigma[:,0], label='sigma(1)', color='blue')
+plt.plot(t_eval, sigma[:,1], label='sigma(2)', color='green')
+plt.plot(t_eval, sigma[:,2], label='sigma(3)', color='orange')
+
+plt.xlabel('Tempo [s]')
+plt.ylabel('Angoli [rad]')
+plt.title('Evoluzione componenti MRP')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
@@ -121,3 +128,4 @@ def update(frame):
 
 ani = FuncAnimation(fig, update, frames=len(t_eval), interval=50, blit=False)
 plt.show()
+

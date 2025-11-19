@@ -356,6 +356,11 @@ def DCM2MRP(DCM):
     s = Quat2MRP(q)
     return s
 
+def MRP2EU_ZYX(sigma):
+    q = MRP2Quat(sigma)
+    angles = Quat2Eu_ZYX(q)
+    return angles
+
 def MRPSum(s1,s2):
     s1_sq = np.dot(s1,s1)
     s2_sq = np.dot(s2,s2)
@@ -366,11 +371,11 @@ def MRPSum(s1,s2):
         s2_sq = np.dot(s2,s2)
         denominator = 1 + s1_sq*s2_sq - 2*np.dot(s1,s2)
         
-    numerator = (1 - s2_sq)*s1 + (1 - s1_sq)*s2 - 2*np.cross(s2,s1)
+    numerator = (1 - s1_sq)*s2 + (1 - s2_sq)*s1 - 2*np.cross(s2,s1)
     s_comp = numerator/denominator
     return s_comp
 
-def ZYX_Differential(t, angles, omega_b):
+def ZYX_Differential(angles, omega_b):
     psi, theta, phi = angles
     c_theta = np.cos(theta)
     s_theta = np.sin(theta)
@@ -384,7 +389,7 @@ def ZYX_Differential(t, angles, omega_b):
     ])
     return T @ omega_b
 
-def Quat_Differential(t, q, omega):
+def Quat_Differential(q, omega):
     Omega = np.array([
         [0, -omega[0], -omega[1], -omega[2]],
         [omega[0], 0, omega[2], -omega[1]],
@@ -394,7 +399,7 @@ def Quat_Differential(t, q, omega):
     dqdt = 0.5 * Omega @ q
     return dqdt
 
-def CRP_Differential(t, sig, omega):
+def CRP_Differential(sig, omega):
     sig1, sig2, sig3 = sig
     B = 0.5*np.array([[1+sig1**2,sig1*sig2 - sig3,sig1*sig3 + sig2],
                       [sig2*sig1 + sig3,1 + sig2**2,sig2*sig3 - sig1],
@@ -402,7 +407,7 @@ def CRP_Differential(t, sig, omega):
     dsigdt =  B @ omega
     return dsigdt
 
-def MRP_Differential(t, sig, omega):
+def MRP_Differential(sig, omega):
     sig1, sig2, sig3 = sig
     s2 = sig1**2 + sig2**2 + sig3**2
     skew = np.array([[0, -sig3, sig2],
@@ -413,6 +418,30 @@ def MRP_Differential(t, sig, omega):
     dsigdt = B @ omega
     return dsigdt   
 
+def MRP_InvDifferential(sigmam,sig_dot):
+    s2 = np.dot(sigmam,sigmam)
+    skew = np.array([[0, -sigmam[2], sigmam[1]],
+                     [sigmam[2], 0, -sigmam[0]],
+                        [-sigmam[1], sigmam[0], 0]])
+    
+    B_inv = 4/((1 + s2)**2)*((1 - s2)*np.eye(3) - 2*skew + 2*np.outer(sigmam, sigmam))
+    omega = B_inv @ sig_dot
+    return omega
+
+def ZYZ_Differential(angles, angles_dot):
+    teta1, teta2, teta3 = angles
+    s2 = np.sen(teta2)
+    c2 = np.cos(teta2)
+    s3 = np.sin(teta3)
+    c3 = np.cos(teta3)
+    T = np.array([
+        [s3 * s2, c3, 0],
+        [c3*s2 , -s3, 0],
+        [c2, 0, 1]
+    ])
+    return T @ angles_dot  
+
+    
 
 def Kinetic_Integration(differential_func, omega_func,t_span, x0, t_eval):
     N=len(t_eval)

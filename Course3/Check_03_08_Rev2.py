@@ -1,11 +1,9 @@
 import numpy as np
-from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.transform import Rotation as R
 from RMKinematicTools import *
-
 
 # Parametri iniziali
 initial_angles_deg = np.array([40, 30, 80])
@@ -52,7 +50,7 @@ def quaternion_kinematics(t, q):
     return dqdt
 
 # Integrazione
-t_eval = np.arange(0, 60.0001, 0.0001)
+t_eval = np.arange(0, 60.0001, 0.01)
 sol = solve_ivp(euler_321_kinematics, (0, 60), initial_angles_rad, t_eval=t_eval, method='RK45')
 solq = solve_ivp(quaternion_kinematics, (0, 60), initial_quat, t_eval=t_eval, method='RK45')
 
