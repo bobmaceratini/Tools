@@ -13,6 +13,8 @@ iGMO = 0.0/180*np.pi  # Inclination of Mother Space craft Orbit in rad
 wGMO = 0.0000709003   # Argument of Periapsis of Mother Spacecraft Orbit in rad/s
 tetaGMO_0 = 250.0/180*np.pi  # True Anomaly of Mother Spacecraft at t=0 in rad
 
+s_BN_t0 = np.array([0.3, -0.4, 0.5])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
+w_BN_B_t0 = np.array([1.0, 1.75, 2.20])/180*np.pi  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
 
 # Mod 2 Functions
 def get_DCM(Om, i, w, time, teta_0):
@@ -38,7 +40,7 @@ def get_HN(time):
     return HN
     
 def get_RsN(time):
-    RsN = np.array([[0,0,-1],[0,0,1],[0,1,0]])
+    RsN = np.array([[0,0,-1],[0,1,0],[0,1,0]])
     return RsN
 
 def get_RnH(time):
@@ -46,7 +48,7 @@ def get_RnH(time):
     return RsH
 
 def get_wRsN(time):
-    w = 0
+    w = np.array([0,0,0])
     return w
 
 def get_wHN(time):
@@ -108,12 +110,19 @@ def get_wRcN2(time,Delta_t):
     wRcN_N = R_k.T @ wRcN_B
     return wRcN_N
     
+def getTrackingError(s_BN, w_BN_B, DCM_RN, w_RN_N):
+    s_RN = DCM2MRP(DCM_RN)
+    s_BR = MRPSum(-s_BN,-s_RN)
+    DCM_BN = MRP2DCM(s_BN)
+    w_BR_B = w_BN_B - DCM_BN @ w_RN_N
+    return s_BR, w_BR_B
 
 def printfile(filename,data):
     with open(filename, "w") as f:
     # Flatten della matrice e scrittura su una riga
         f.write(" ".join(f"{x:.7f}" for x in data.flatten()))
     return
+
 
 # Task 1
 t = 450  # time in seconds for Nano Spacecraft
@@ -171,3 +180,34 @@ print("---------------------------------------------------")
 print(f"Task 5 - RcN angular velocity at t={t}s (rad/s): \n", wRcN)
 printfile("Task5p2.txt",wRcN)
 
+#Task 6
+t = 0  # time in seconds
+RsN = get_RsN(t)
+wRsN = get_wRsN(t)
+s_BRs, w_BR_Bs = getTrackingError(s_BN_t0, w_BN_B_t0, RsN, wRsN)
+print("---------------------------------------------------")
+print("Task 6 - Tracking error w.r.t. Sun frame Rs at t=0")
+print("MRP attitude error s_BR: ", s_BRs)
+print("Angular velocity error w_BR_B (rad/s): ", w_BR_Bs)
+printfile("Task6p1.txt",s_BRs)
+printfile("Task6p2.txt",w_BR_Bs)
+
+RnN = get_RnN(t)
+wRnN = get_wRnN(t)
+s_BRn, w_BR_Bn = getTrackingError(s_BN_t0, w_BN_B_t0, RnN, wRnN)
+print("---------------------------------------------------")
+print("Task 6 - Tracking error w.r.t. Mars frame Rn at t=0")
+print("MRP attitude error s_BR: ", s_BRn)
+print("Angular velocity error w_BR_B (rad/s): ", w_BR_Bn)
+printfile("Task6p3.txt",s_BRn)
+printfile("Task6p4.txt",w_BR_Bn)
+
+RcN = get_RnN(t)
+wRcN = get_wRnN(t)
+s_BRc, w_BR_Bc = getTrackingError(s_BN_t0, w_BN_B_t0, RcN, wRsN)
+print("---------------------------------------------------")
+print("Task 6 - Tracking error w.r.t. GMO frame Rc at t=0")
+print("MRP attitude error s_BR: ", s_BRc)
+print("Angular velocity error w_BR_B (rad/s): ", w_BR_Bc)
+printfile("Task6p5.txt",s_BRc)
+printfile("Task6p6.txt",w_BR_Bc)
