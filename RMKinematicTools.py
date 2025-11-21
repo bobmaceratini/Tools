@@ -375,6 +375,20 @@ def MRPSum(s1,s2):
     s_comp = numerator/denominator
     return s_comp
 
+def MRPSub(s1,s):
+    s1_sq = np.dot(s1,s1)
+    s_sq = np.dot(s,s)
+    denominator = 1 + s1_sq*s_sq + 2*np.dot(s1,s)
+    if abs(denominator) < 0.0001:
+        s1 = MRP2Shadow(s1)
+        s1_sq = np.dot(s1,s1)
+        s_sq = np.dot(s,s)
+        denominator = 1 + s1_sq*s_sq + 2*np.dot(s1,s)
+        
+    numerator = (1 - s1_sq)*s - (1 - s_sq)*s1 + 2*np.cross(s,s1)
+    s_comp = numerator/denominator
+    return s_comp
+
 def ZYX_Differential(angles, omega_b):
     psi, theta, phi = angles
     c_theta = np.cos(theta)

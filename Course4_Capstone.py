@@ -14,7 +14,7 @@ wGMO = 0.0000709003   # Argument of Periapsis of Mother Spacecraft Orbit in rad/
 tetaGMO_0 = 250.0/180*np.pi  # True Anomaly of Mother Spacecraft at t=0 in rad
 
 s_BN_t0 = np.array([0.3, -0.4, 0.5])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
-w_BN_B_t0 = np.array([1.0, 1.75, 2.20])/180*np.pi  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
+w_BN_B_t0 = np.array([1.0, 1.75, -2.20])/180*np.pi  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
 
 # Mod 2 Functions
 def get_DCM(Om, i, w, time, teta_0):
@@ -40,12 +40,12 @@ def get_HN(time):
     return HN
     
 def get_RsN(time):
-    RsN = np.array([[0,0,-1],[0,1,0],[0,1,0]])
+    RsN = np.array([[-1,0,0],[0,0,1],[0,1,0]])
     return RsN
 
 def get_RnH(time):
-    RsH = np.array([[-1,0,0],[0,1,0],[0,0,-1]])
-    return RsH
+    RnH = np.array([[-1,0,0],[0,1,0],[0,0,-1]])
+    return RnH
 
 def get_wRsN(time):
     w = np.array([0,0,0])
@@ -91,7 +91,7 @@ def get_RcN(time):
     RcN = RcN.T
     return RcN
 
-def get_wRcN(time,Delta_t):
+def get_wRcN(time,Delta_t=0.1):
     R_k = get_RcN(time)
     R_k1 = get_RcN(time + Delta_t)
     R_k1_k = R_k1 @ R_k.T
@@ -112,10 +112,11 @@ def get_wRcN2(time,Delta_t):
     
 def getTrackingError(s_BN, w_BN_B, DCM_RN, w_RN_N):
     s_RN = DCM2MRP(DCM_RN)
-    s_BR = MRPSum(-s_BN,-s_RN)
+    s_BR = -MRPSum(-s_BN,s_RN)
     DCM_BN = MRP2DCM(s_BN)
     w_BR_B = w_BN_B - DCM_BN @ w_RN_N
     return s_BR, w_BR_B
+
 
 def printfile(filename,data):
     with open(filename, "w") as f:
@@ -202,9 +203,9 @@ print("Angular velocity error w_BR_B (rad/s): ", w_BR_Bn)
 printfile("Task6p3.txt",s_BRn)
 printfile("Task6p4.txt",w_BR_Bn)
 
-RcN = get_RnN(t)
-wRcN = get_wRnN(t)
-s_BRc, w_BR_Bc = getTrackingError(s_BN_t0, w_BN_B_t0, RcN, wRsN)
+RcN = get_RcN(t)
+wRcN = get_wRcN(t)
+s_BRc, w_BR_Bc = getTrackingError(s_BN_t0, w_BN_B_t0, RcN, wRcN)
 print("---------------------------------------------------")
 print("Task 6 - Tracking error w.r.t. GMO frame Rc at t=0")
 print("MRP attitude error s_BR: ", s_BRc)
