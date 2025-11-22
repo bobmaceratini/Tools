@@ -1,5 +1,10 @@
 import numpy as np
 from RMKinematicTools import *
+from RMKineticsTools import *
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.spatial.transform import Rotation as R
+from RMKinematicTools import *
+import matplotlib.pyplot as plt
 
 rLMO = 3796.19  # Radius of Nano Spacecraft Orbit in km
 OmLMO = 20.0/180*np.pi  # Longitude of Ascending Node of Nano Spacecraft Orbit in rad
@@ -15,6 +20,8 @@ tetaGMO_0 = 250.0/180*np.pi  # True Anomaly of Mother Spacecraft at t=0 in rad
 
 s_BN_t0 = np.array([0.3, -0.4, 0.5])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
 w_BN_B_t0 = np.array([1.0, 1.75, -2.20])/180*np.pi  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
+
+InertiaTensor = np.array([[10.0,0,0],[0,5.0,0],[0,0,7.5]])  # Inertia Tensor of Nano Spacecraft in kg*m^2
 
 # Mod 2 Functions
 def get_DCM(Om, i, w, time, teta_0):
@@ -112,7 +119,9 @@ def get_wRcN2(time,Delta_t):
     
 def getTrackingError(s_BN, w_BN_B, DCM_RN, w_RN_N):
     s_RN = DCM2MRP(DCM_RN)
-    s_BR = -MRPSum(-s_BN,s_RN)
+    s_BR = MRPSum(-s_RN,s_BN)
+    if np.linalg.norm(s_BR) > 1:
+        s_BR = MRP2Shadow(s_BR)
     DCM_BN = MRP2DCM(s_BN)
     w_BR_B = w_BN_B - DCM_BN @ w_RN_N
     return s_BR, w_BR_B
@@ -212,3 +221,144 @@ print("MRP attitude error s_BR: ", s_BRc)
 print("Angular velocity error w_BR_B (rad/s): ", w_BR_Bc)
 printfile("Task6p5.txt",s_BRc)
 printfile("Task6p6.txt",w_BR_Bc)
+
+#Task 7 (7.1, 7.2, 7.3, 7.4)
+tstep = 1
+tmax = 600+tstep
+time = np.arange(0, tmax, tstep)    
+
+sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time)
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, omega[:,0]/np.pi*180, label='wBN_B(1)', color='blue')
+plt.plot(time, omega[:,1]/np.pi*180, label='wBN_B(2)', color='green')
+plt.plot(time, omega[:,2]/np.pi*180, label='wBN_B(3)', color='orange')
+
+plt.xlabel('Time [s]')
+plt.ylabel('Angular velocity [deg/s]')
+plt.title('Body Angular Velocity, Body Frame')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, sigma[:,0], label='sBN_(1)', color='blue')
+plt.plot(time, sigma[:,1], label='sBN_(2)', color='green')
+plt.plot(time, sigma[:,2], label='sBN_(3)', color='orange')
+
+plt.xlabel('Time [s]')
+plt.ylabel('MRP components [m]')
+plt.title('Body MRP, Body Frame')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, H[:,0], label='H_(1)', color='blue')
+plt.plot(time, H[:,1], label='H_(2)', color='green')
+plt.plot(time, H[:,2], label='H_(3)', color='orange')
+
+plt.xlabel('Time [s]')
+plt.ylabel('Angular Momentum [kgm2/s]')
+plt.title('Angular Momentum Components, Body Frame')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, T, label='Trot', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('Kinetic Energy [J]')
+plt.title('Rotational Kinetic Energy')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+t_eval = 500
+index_t_eval = np.argmin(np.abs(time - t_eval))
+omega_t = omega[index_t_eval,:]
+H_t = InertiaTensor @ omega_t
+T_t = 1/2 * omega_t.T @ InertiaTensor @ omega_t
+s_t = sigma[index_t_eval,:]
+H_t_N = MRP2DCM(s_t).T @ H_t
+
+
+print("---------------------------------------------------")
+print(f"Task 7.1 - Angular Momentum at t={t_eval}s (kg*m^2/s): ", H_t)
+printfile("Task7p1.txt",H_t)
+print("---------------------------------------------------")
+print(f"Task 7.2 - Rotational Kinetic energy at t={t_eval}s (J): ", T_t)
+printfile("Task7p2.txt",T_t)
+print("---------------------------------------------------")
+print(f"Task 7.3 - MRP at t={t_eval}s (J): ", s_t)
+printfile("Task7p3.txt",s_t)
+print("---------------------------------------------------")
+print(f"Task 7.4 - Angual Momentun at t={t_eval}s in N frame(J): ", H_t_N)
+printfile("Task7p4.txt",H_t_N)
+
+#Task 7 (7.5)
+tstep = 1
+tmax = 600+tstep
+time = np.arange(0, tmax, tstep)    
+
+uf = np.array([0.01, -0.01, 0.02])  # constant disturbance torque in N*m
+sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time,uf)
+plt.figure(figsize=(10, 6))
+plt.plot(time, omega[:,0]/np.pi*180, label='wBN_B(1)', color='blue')
+plt.plot(time, omega[:,1]/np.pi*180, label='wBN_B(2)', color='green')
+plt.plot(time, omega[:,2]/np.pi*180, label='wBN_B(3)', color='orange')
+
+plt.xlabel('Time [s]')
+plt.ylabel('Angular velocity [deg/s]')
+plt.title('Body Angular Velocity, Body Frame')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, sigma[:,0], label='sBN_(1)', color='blue')
+plt.plot(time, sigma[:,1], label='sBN_(2)', color='green')
+plt.plot(time, sigma[:,2], label='sBN_(3)', color='orange')
+
+
+plt.xlabel('Time [s]')
+plt.ylabel('MRP components [m]')
+plt.title('Body MRP, Body Frame')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, H[:,0], label='H_(1)', color='blue')
+plt.plot(time, H[:,1], label='H_(2)', color='green')
+plt.plot(time, H[:,2], label='H_(3)', color='orange')
+
+plt.xlabel('Time [s]')
+plt.ylabel('Angular Momentum [kgm2/s]')
+plt.title('Angular Momentum Components, Body Frame')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, T, label='Trot', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('Kinetic Energy [J]')
+plt.title('Rotational Kinetic Energy')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+t_eval = 100
+index_t_eval = np.argmin(np.abs(time - t_eval))
+s_t = sigma[index_t_eval,:]
+print(f"Task 7.5 - MRP at t={t_eval}s (J): ", s_t)
+printfile("Task7p5.txt",s_t)

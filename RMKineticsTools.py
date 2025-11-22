@@ -46,8 +46,8 @@ def EOM_Rotation(InertiaTensor,invInertiaTensor,omega,u,L):
     return deltaOmega
 
 
-def EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,sigma,omega,u,L):
-    deltasigma = MRP_Differential(0,sigma,omega)
+def EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,sigma,omega,u,L):
+    deltasigma = MRP_Differential(sigma,omega)
     deltaomega = EOM_Rotation(InertiaTensor,invInertiaTensor,omega,u,L)
     return deltasigma,deltaomega
     
@@ -379,4 +379,89 @@ def Control_Linear_CLD_MPR(InertiaTensor,sigma0, omega0, K, P, umax, t_eval,sigm
 
     return sigma,omega,angles,sigmaBR,u
 
+def EOM_MRP_Control_Integrator(InertiaTensor,sigma0, omega0, t_eval, L = np.array([0,0,0]), K=0, P = np.array([0,0,0]), ffwd=0, fbdklin=0,
+                               loadcomp=0, umax = 0, sigma_ref=None,omega_ref=None):
+    N=len(t_eval)
+    invInertiaTensor = np.linalg.inv(InertiaTensor)
+    sigma = np.zeros((N, sigma0.size))
+    omega = np.zeros((N, sigma0.size))
+    angles = np.zeros((N, sigma0.size))
+    sigmaBR = np.zeros((N, sigma0.size))
+    H = np.zeros((N, sigma0.size))
+    T = np.zeros((N, 1))
+    u = np.zeros((N, sigma0.size))
+    sigma[0] = sigma0
+    omega[0] = omega0
+    H[0] = InertiaTensor @ omega0
+    T[0] = 0.5*omega0.T @ InertiaTensor @ omega0*0
+    angles[0]=MRP2EU_ZYX(sigma0)
+    if (sigma_ref is None):
+        sigma_ref = np.zeros((N, sigma0.size))
     
+    sigmaBR[0] = MRPSum(sigma0,-sigma_ref[0])
+        
+    for t_index in range(1, len(t_eval)):
+        dt = t_eval[t_index] - t_eval[t_index - 1]
+        if np.linalg.norm(sigma[t_index-1]) > 1:
+            sigma[t_index-1] = MRP2Shadow(sigma[t_index-1])
+        if np.linalg.norm(sigma_ref[t_index-1]) > 1:
+            sigma_ref[t_index-1] = MRP2Shadow(sigma_ref[t_index-1])
+        
+        sigmaBR[t_index - 1] = -MRPSum(-sigma[t_index - 1],sigma_ref[t_index - 1])
+        if np.linalg.norm(sigmaBR[t_index-1]) > 1:
+            sigmaBR[t_index-1] = MRP2Shadow(sigmaBR[t_index-1])
+            sigmaBR[t_index - 1] = sigma[t_index - 1]
+
+        BR = MRP2DCM(sigmaBR[t_index - 1])
+        omega_ref_BR = BR @ omega_ref[t_index - 1] if omega_ref is not None else np.array([0,0,0])
+        omega_ref_dot_BR = BR @ ((omega_ref[t_index]-omega_ref[t_index-1])/dt) if omega_ref is not None else np.array([0,0,0])
+
+        term_1_K= - K * (sigmaBR[t_index - 1]) 
+
+        term_2_P = - P * (omega[t_index - 1] - omega_ref_BR)
+
+        term_3_FF = InertiaTensor@(omega_ref_dot_BR-np.cross(omega[t_index-1],omega_ref_BR))
+
+        term_4_FL = tilde(omega[t_index - 1]) @ InertiaTensor @ omega[t_index - 1]
+
+        term_5_LC = -L
+
+        u[t_index-1]= term_1_K + term_2_P + term_3_FF*ffwd + term_4_FL*fbdklin + term_5_LC*loadcomp
+
+        if (u[t_index-1][0]>umax):
+            u[t_index-1][0]=umax
+        if (u[t_index-1][1]>umax):  
+            u[t_index-1][1]=umax
+        if (u[t_index-1][2]>umax):
+            u[t_index-1][2]=umax
+
+        if (u[t_index-1][0]<-umax):
+            u[t_index-1][0]=-umax
+        if (u[t_index-1][1]<-umax):
+            u[t_index-1][1]=-umax
+        if (u[t_index-1][2]<-umax):
+            u[t_index-1][2]=-umax   
+
+
+        k1s,k1o  = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
+                                                              sigma[t_index-1],omega[t_index-1],u[t_index-1],L)
+
+        k2s,k2o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
+                                                              sigma[t_index-1]+0.5*dt*k1s,
+                                                              omega[t_index-1]+0.5*dt*k1o,u[t_index-1],L)
+        k3s,k3o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
+                                                                sigma[t_index-1]+0.5*dt*k2s,
+                                                                omega[t_index-1]+0.5*dt*k2o,u[t_index-1],L)    
+        k4s,k4o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,     
+                                                                sigma[t_index-1]+dt*k3s,
+                                                                omega[t_index-1]+dt*k3o,u[t_index-1],L)
+        deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
+        deltaomega = (1/6)*(k1o + 2*k2o +  2*k3o + k4o)
+        sigma[t_index] = sigma[t_index - 1] + dt * deltasigma
+        omega[t_index] = omega[t_index-1] + dt * deltaomega
+        if np.linalg.norm(sigma[t_index]) > 1:
+            sigma[t_index] = MRP2Shadow(sigma[t_index])        
+        angles[t_index]=MRP2EU_ZYX(sigma[t_index])
+        H[t_index] = InertiaTensor @ omega[t_index]
+        T[t_index] = 0.5*omega[t_index].T @ InertiaTensor @ omega[t_index]
+    return sigma,omega,angles,sigmaBR,u, H, T
