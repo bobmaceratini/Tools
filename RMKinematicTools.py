@@ -361,6 +361,7 @@ def MRP2EU_ZYX(sigma):
     angles = Quat2Eu_ZYX(q)
     return angles
 
+
 def MRPSum(s1,s2):
     s1_sq = np.dot(s1,s1)
     s2_sq = np.dot(s2,s2)

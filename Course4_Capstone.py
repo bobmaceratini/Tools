@@ -5,6 +5,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.transform import Rotation as R
 from RMKinematicTools import *
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.animation import FuncAnimation
 
 rLMO = 3796.19  # Radius of Nano Spacecraft Orbit in km
 OmLMO = 20.0/180*np.pi  # Longitude of Ascending Node of Nano Spacecraft Orbit in rad
@@ -20,8 +22,10 @@ tetaGMO_0 = 250.0/180*np.pi  # True Anomaly of Mother Spacecraft at t=0 in rad
 
 s_BN_t0 = np.array([0.3, -0.4, 0.5])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
 w_BN_B_t0 = np.array([1.0, 1.75, -2.20])/180*np.pi  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
-
-InertiaTensor = np.array([[10.0,0,0],[0,5.0,0],[0,0,7.5]])  # Inertia Tensor of Nano Spacecraft in kg*m^2
+I1 = 10.0
+I2 = 5.0
+I3 = 7.5
+InertiaTensor = np.array([[I1,0,0],[0,I2,0],[0,0,I3]])  # Inertia Tensor of Nano Spacecraft in kg*m^2
 
 # Mod 2 Functions
 def get_DCM(Om, i, w, time, teta_0):
@@ -133,6 +137,121 @@ def printfile(filename,data):
         f.write(" ".join(f"{x:.7f}" for x in data.flatten()))
     return
 
+def Animation(skip):
+    # Vertici del cubo
+    cube_vertices = np.array([
+        [-1, -1, -1],
+        [ 1, -1, -1],
+        [ 1,  1, -1],
+        [-1,  1, -1],
+        [-1, -1,  1],
+        [ 1, -1,  1],
+        [ 1,  1,  1],
+        [-1,  1,  1]
+    ])
+    edges = [
+        [0,1],[1,2],[2,3],[3,0],
+        [4,5],[5,6],[6,7],[7,4],
+        [0,4],[1,5],[2,6],[3,7]
+    ]
+    # Setup figura
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    scale = 4
+    ax.set_xlim([-scale, scale])
+    ax.set_ylim([-scale, scale])
+    ax.set_zlim([-scale, scale])
+    lines = [ax.plot([], [], [], 'b')[0] for _ in edges]
+    
+    def update(frame):
+        ax.clear()
+        ax.set_xlim([-scale, scale])
+        ax.set_ylim([-scale, scale])
+        ax.set_zlim([-scale, scale])
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+
+        psi, theta, phi = angles[frame]
+        rot = R.from_euler('ZYX', [psi, theta, phi])
+        rotated_vertices = rot.apply(cube_vertices)
+
+        # Disegna il cubo
+        #for start, end in edges:
+        #    xs, ys, zs = zip(rotated_vertices[start], rotated_vertices[end])
+        #    ax.plot(xs, ys, zs, 'b')
+
+        # Terna solidale (assi del corpo)
+        origin = np.array([0, 0, 0])+ get_rLMO(time[frame])/1000
+        body_axes = np.eye(3)  # X, Y, Z unitari
+        rotated_axes = rot.apply(body_axes)
+
+        colors = ['r', 'b', 'g']  
+        labels = ['X_body', 'Y_body', 'Z_body']
+
+        for vec, color, label in zip(rotated_axes, colors, labels):
+            ax.quiver(*origin, *vec, color=color, length=1.5, normalize=True)
+            ax.text(*(vec * 1.2), label, color=color)
+            ax.plot([0 ,origin[0]],
+            [0, origin[1]],
+            [0, origin[2]],
+            color='orange', linewidth=2)
+
+        ax.set_title(f"t = {time[frame]:.1f}s")
+
+        return lines
+
+    ani = FuncAnimation(fig, update, frames=range(0, len(time), skip), interval=10, blit=False)
+    plt.show()
+    return
+    
+def PlotSimulation(okplot,step=1):
+    if okplot:
+        plt.figure(figsize=(10, 6))
+        plt.plot(time, sigma[:,0], label='s(1)', color='blue')
+        plt.plot(time, sigma_ref[:,0], '--', label='sref(1)', color='blue')
+        plt.plot(time, sigma[:,1], label='s(2)', color='green')
+        plt.plot(time, sigma_ref[:,1], '--', label='sref(2)', color='green')
+        plt.plot(time, sigma[:,2], label='s(3)', color='orange')
+        plt.plot(time, sigma_ref[:,2], '--', label='sref(3)', color='orange')
+        plt.plot(time, snorm, label='s', color='red')
+        plt.xlabel('Time [s]')
+        plt.ylabel('MRP components [m]')
+        plt.title('Body MRP, BN')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(time, omega[:,0], label='s(1)', color='blue')
+        plt.plot(time, omega_ref[:,0], '--', label='s_ref(1)', color='blue')
+        plt.plot(time, omega[:,1], label='s(2)', color='green')
+        plt.plot(time, omega_ref[:,1], '--', label='s_ref(2)', color='green')
+        plt.plot(time, omega[:,2], label='s(3)', color='orange')
+        plt.plot(time, omega_ref[:,2], '--', label='s_ref(3)', color='orange')
+        plt.xlabel('Time [s]')
+        plt.ylabel('angular velocity [rad/s]')
+        plt.title('Angular velocity, BN')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(time, u[:,0], label='u(1)', color='blue')
+        plt.plot(time, u[:,1], label='u(2)', color='green')
+        plt.plot(time, u[:,2], label='u(3)', color='orange')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Thruster Force [N]')
+        plt.title('Trhuster commands')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+        Animation(step)
+    return
 
 # Task 1
 t = 450  # time in seconds for Nano Spacecraft
@@ -228,55 +347,56 @@ tmax = 600+tstep
 time = np.arange(0, tmax, tstep)    
 
 sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time)
+okplot = False
+if okplot:
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, omega[:,0]/np.pi*180, label='wBN_B(1)', color='blue')
+    plt.plot(time, omega[:,1]/np.pi*180, label='wBN_B(2)', color='green')
+    plt.plot(time, omega[:,2]/np.pi*180, label='wBN_B(3)', color='orange')
 
-plt.figure(figsize=(10, 6))
-plt.plot(time, omega[:,0]/np.pi*180, label='wBN_B(1)', color='blue')
-plt.plot(time, omega[:,1]/np.pi*180, label='wBN_B(2)', color='green')
-plt.plot(time, omega[:,2]/np.pi*180, label='wBN_B(3)', color='orange')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angular velocity [deg/s]')
+    plt.title('Body Angular Velocity, Body Frame')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-plt.xlabel('Time [s]')
-plt.ylabel('Angular velocity [deg/s]')
-plt.title('Body Angular Velocity, Body Frame')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, sigma[:,0], label='sBN_(1)', color='blue')
+    plt.plot(time, sigma[:,1], label='sBN_(2)', color='green')
+    plt.plot(time, sigma[:,2], label='sBN_(3)', color='orange')
 
-plt.figure(figsize=(10, 6))
-plt.plot(time, sigma[:,0], label='sBN_(1)', color='blue')
-plt.plot(time, sigma[:,1], label='sBN_(2)', color='green')
-plt.plot(time, sigma[:,2], label='sBN_(3)', color='orange')
+    plt.xlabel('Time [s]')
+    plt.ylabel('MRP components [m]')
+    plt.title('Body MRP, Body Frame')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-plt.xlabel('Time [s]')
-plt.ylabel('MRP components [m]')
-plt.title('Body MRP, Body Frame')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, H[:,0], label='H_(1)', color='blue')
+    plt.plot(time, H[:,1], label='H_(2)', color='green')
+    plt.plot(time, H[:,2], label='H_(3)', color='orange')
 
-plt.figure(figsize=(10, 6))
-plt.plot(time, H[:,0], label='H_(1)', color='blue')
-plt.plot(time, H[:,1], label='H_(2)', color='green')
-plt.plot(time, H[:,2], label='H_(3)', color='orange')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angular Momentum [kgm2/s]')
+    plt.title('Angular Momentum Components, Body Frame')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-plt.xlabel('Time [s]')
-plt.ylabel('Angular Momentum [kgm2/s]')
-plt.title('Angular Momentum Components, Body Frame')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-plt.figure(figsize=(10, 6))
-plt.plot(time, T, label='Trot', color='blue')
-plt.xlabel('Time [s]')
-plt.ylabel('Kinetic Energy [J]')
-plt.title('Rotational Kinetic Energy')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, T, label='Trot', color='blue')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Kinetic Energy [J]')
+    plt.title('Rotational Kinetic Energy')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 t_eval = 500
 index_t_eval = np.argmin(np.abs(time - t_eval))
@@ -307,58 +427,191 @@ time = np.arange(0, tmax, tstep)
 
 uf = np.array([0.01, -0.01, 0.02])  # constant disturbance torque in N*m
 sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time,uf)
-plt.figure(figsize=(10, 6))
-plt.plot(time, omega[:,0]/np.pi*180, label='wBN_B(1)', color='blue')
-plt.plot(time, omega[:,1]/np.pi*180, label='wBN_B(2)', color='green')
-plt.plot(time, omega[:,2]/np.pi*180, label='wBN_B(3)', color='orange')
 
-plt.xlabel('Time [s]')
-plt.ylabel('Angular velocity [deg/s]')
-plt.title('Body Angular Velocity, Body Frame')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+okplot = False
+if okplot:
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, omega[:,0]/np.pi*180, label='wBN_B(1)', color='blue')
+    plt.plot(time, omega[:,1]/np.pi*180, label='wBN_B(2)', color='green')
+    plt.plot(time, omega[:,2]/np.pi*180, label='wBN_B(3)', color='orange')
 
-plt.figure(figsize=(10, 6))
-plt.plot(time, sigma[:,0], label='sBN_(1)', color='blue')
-plt.plot(time, sigma[:,1], label='sBN_(2)', color='green')
-plt.plot(time, sigma[:,2], label='sBN_(3)', color='orange')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angular velocity [deg/s]')
+    plt.title('Body Angular Velocity, Body Frame')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, sigma[:,0], label='sBN_(1)', color='blue')
+    plt.plot(time, sigma[:,1], label='sBN_(2)', color='green')
+    plt.plot(time, sigma[:,2], label='sBN_(3)', color='orange')
 
 
-plt.xlabel('Time [s]')
-plt.ylabel('MRP components [m]')
-plt.title('Body MRP, Body Frame')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.xlabel('Time [s]')
+    plt.ylabel('MRP components [m]')
+    plt.title('Body MRP, Body Frame')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-plt.figure(figsize=(10, 6))
-plt.plot(time, H[:,0], label='H_(1)', color='blue')
-plt.plot(time, H[:,1], label='H_(2)', color='green')
-plt.plot(time, H[:,2], label='H_(3)', color='orange')
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, H[:,0], label='H_(1)', color='blue')
+    plt.plot(time, H[:,1], label='H_(2)', color='green')
+    plt.plot(time, H[:,2], label='H_(3)', color='orange')
 
-plt.xlabel('Time [s]')
-plt.ylabel('Angular Momentum [kgm2/s]')
-plt.title('Angular Momentum Components, Body Frame')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angular Momentum [kgm2/s]')
+    plt.title('Angular Momentum Components, Body Frame')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-plt.figure(figsize=(10, 6))
-plt.plot(time, T, label='Trot', color='blue')
-plt.xlabel('Time [s]')
-plt.ylabel('Kinetic Energy [J]')
-plt.title('Rotational Kinetic Energy')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.figure(figsize=(10, 6))
+    plt.plot(time, T, label='Trot', color='blue')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Kinetic Energy [J]')
+    plt.title('Rotational Kinetic Energy')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 t_eval = 100
 index_t_eval = np.argmin(np.abs(time - t_eval))
 s_t = sigma[index_t_eval,:]
 print(f"Task 7.5 - MRP at t={t_eval}s (J): ", s_t)
 printfile("Task7p5.txt",s_t)
+
+#Task 8 
+Tdecay = 120
+Imax = np.max([I1,I2,I3])
+Pg = 2*Imax/Tdecay
+P = np.array([Pg,Pg,Pg])
+Imin = np.min([I1,I2,I3])
+K = Pg**2/Imin
+Tdecay1 = 2*I1/Pg
+Tdecay2 = 2*I2/Pg
+Tdecay3 = 2*I3/Pg
+damp1 = Pg/(np.sqrt(K*I1))
+damp2 = Pg/(np.sqrt(K*I2))
+damp3 = Pg/(np.sqrt(K*I3))
+
+#Task 8.1
+print("---------------------------------------------------")
+print(f"Task 8.1 - K and P gains used in Task 8: P = {Pg} N, K = {K} Nms/rad")
+print("---------------------------------------------------")
+print("Verification of decay times (s): ", Tdecay1, Tdecay2, Tdecay3)
+print("Verification of damping ratios: ", damp1, damp2, damp3)
+gains = np.array([Pg, K])
+printfile("Task8p1.txt",gains)
+
+tstep = 1
+tmax = 600+tstep
+time = np.arange(0, tmax, tstep)
+sigma_ref_S = np.zeros((len(time), 3))
+omega_ref_S = np.zeros((len(time), 3))
+for i in range(0,len(time)):
+    t = time[i]
+    RsN = get_RsN(t)
+    sigma_ref_S[i]= DCM2MRP(RsN)
+    if np.linalg.norm(sigma_ref_S[i])>1:
+        sigma_ref_S[i] = MRP2Shadow(sigma_ref_S[i])
+    omega_ref_S[i] = RsN.T @ get_wRsN(t)
+
+sigma_ref =  sigma_ref_S
+omega_ref = omega_ref_S
+
+L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
+sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time, L,
+                                                              K, P, 0, 0, 0, 1e100, sigma_ref_S, omega_ref_S)
+snorm = np.zeros((len(time), 1))
+for i in range(1, len(time)):
+    snorm[i] = np.linalg.norm(sigma[i])
+
+t_eval = 15
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 8.2 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task8p2.txt",sigma_teval)
+
+t_eval = 100
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 8.3 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task8p3.txt",sigma_teval)
+
+t_eval = 200
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 8.4 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task8p4.txt",sigma_teval)
+
+t_eval = 400
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 8.5 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task8p5.txt",sigma_teval)
+
+PlotSimulation(False)
+
+#Task 9
+tstep = 1
+tmax = 7097*2+tstep
+time = np.arange(0, tmax, tstep)
+sigma_ref_N = np.zeros((len(time), 3))
+omega_ref_N = np.zeros((len(time), 3))
+for i in range(0,len(time)):
+    t = time[i]
+    RnN = get_RnN(t)
+    sigma_ref_N[i]= DCM2MRP(RnN)
+    if np.linalg.norm(sigma_ref_N[i])>1:
+        sigma_ref_N[i] = MRP2Shadow(sigma_ref_N[i])
+    omega_ref_N[i] = RnN.T @ get_wRnN(t)
+
+sigma_ref =  sigma_ref_N
+omega_ref = omega_ref_N
+
+L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
+sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time, L,
+                                                              K, P, 1, 1, 0, 1e100, sigma_ref, omega_ref)
+snorm = np.zeros((len(time), 1))
+for i in range(1, len(time)):
+    snorm[i] = np.linalg.norm(sigma[i])
+
+t_eval = 15
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 9.1 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task9p1.txt",sigma_teval)
+
+t_eval = 100
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 9.2 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task9p2.txt",sigma_teval)
+
+t_eval = 200
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 9.3 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task9p3.txt",sigma_teval)
+
+t_eval = 400
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 9.4 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task9p4.txt",sigma_teval)
+
+PlotSimulation(True,30)

@@ -396,25 +396,25 @@ def EOM_MRP_Control_Integrator(InertiaTensor,sigma0, omega0, t_eval, L = np.arra
     T[0] = 0.5*omega0.T @ InertiaTensor @ omega0*0
     angles[0]=MRP2EU_ZYX(sigma0)
     if (sigma_ref is None):
-        sigma_ref = np.zeros((N, sigma0.size))
+        sigma_ref = np.zeros((N, 3))
+        omega_ref = np.zeros((N, 3))
     
     sigmaBR[0] = MRPSum(sigma0,-sigma_ref[0])
         
     for t_index in range(1, len(t_eval)):
         dt = t_eval[t_index] - t_eval[t_index - 1]
-        if np.linalg.norm(sigma[t_index-1]) > 1:
-            sigma[t_index-1] = MRP2Shadow(sigma[t_index-1])
-        if np.linalg.norm(sigma_ref[t_index-1]) > 1:
-            sigma_ref[t_index-1] = MRP2Shadow(sigma_ref[t_index-1])
-        
-        sigmaBR[t_index - 1] = -MRPSum(-sigma[t_index - 1],sigma_ref[t_index - 1])
+
+        #if np.linalg.norm(sigma[t_index-1]) > 1:
+        #    sigma[t_index-1] = MRP2Shadow(sigma[t_index-1])
+        #if np.linalg.norm(sigma_ref[t_index-1]) > 1:
+        #    sigma_ref[t_index-1] = MRP2Shadow(sigma_ref[t_index-1])
+        sigmaBR[t_index - 1] = MRPSum(-sigma_ref[t_index - 1],sigma[t_index - 1],)
         if np.linalg.norm(sigmaBR[t_index-1]) > 1:
             sigmaBR[t_index-1] = MRP2Shadow(sigmaBR[t_index-1])
-            sigmaBR[t_index - 1] = sigma[t_index - 1]
 
         BR = MRP2DCM(sigmaBR[t_index - 1])
-        omega_ref_BR = BR @ omega_ref[t_index - 1] if omega_ref is not None else np.array([0,0,0])
-        omega_ref_dot_BR = BR @ ((omega_ref[t_index]-omega_ref[t_index-1])/dt) if omega_ref is not None else np.array([0,0,0])
+        omega_ref_BR = BR @ omega_ref[t_index - 1] 
+        omega_ref_dot_BR = BR @ ((omega_ref[t_index]-omega_ref[t_index-1])/dt)
 
         term_1_K= - K * (sigmaBR[t_index - 1]) 
 
