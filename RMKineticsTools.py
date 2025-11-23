@@ -409,7 +409,7 @@ def EOM_MRP_Control_Integrator(InertiaTensor,sigma0, omega0, t_eval, L = np.arra
         #if np.linalg.norm(sigma_ref[t_index-1]) > 1:
         #    sigma_ref[t_index-1] = MRP2Shadow(sigma_ref[t_index-1])
         sigmaBR[t_index - 1] = MRPSum(-sigma_ref[t_index - 1],sigma[t_index - 1],)
-        if np.linalg.norm(sigmaBR[t_index-1]) > 1:
+        if np.linalg.norm(sigmaBR[t_index-1]) >= 1:
             sigmaBR[t_index-1] = MRP2Shadow(sigmaBR[t_index-1])
 
         BR = MRP2DCM(sigmaBR[t_index - 1])

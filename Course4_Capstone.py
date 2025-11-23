@@ -27,6 +27,8 @@ I2 = 5.0
 I3 = 7.5
 InertiaTensor = np.array([[I1,0,0],[0,I2,0],[0,0,I3]])  # Inertia Tensor of Nano Spacecraft in kg*m^2
 
+tMAX = 6500
+
 # Mod 2 Functions
 def get_DCM(Om, i, w, time, teta_0):
     teta = w*time + teta_0
@@ -134,7 +136,7 @@ def getTrackingError(s_BN, w_BN_B, DCM_RN, w_RN_N):
 def printfile(filename,data):
     with open(filename, "w") as f:
     # Flatten della matrice e scrittura su una riga
-        f.write(" ".join(f"{x:.7f}" for x in data.flatten()))
+        f.write(" ".join(f"{x:.5f}" for x in data.flatten()))
     return
 
 def Animation(skip):
@@ -185,17 +187,15 @@ def Animation(skip):
         origin = np.array([0, 0, 0])+ get_rLMO(time[frame])/1000
         body_axes = np.eye(3)  # X, Y, Z unitari
         rotated_axes = rot.apply(body_axes)
-
+        GMO_pos = get_rGMO(time[frame])/1000
         colors = ['r', 'b', 'g']  
         labels = ['X_body', 'Y_body', 'Z_body']
 
         for vec, color, label in zip(rotated_axes, colors, labels):
             ax.quiver(*origin, *vec, color=color, length=1.5, normalize=True)
             ax.text(*(vec * 1.2), label, color=color)
-            ax.plot([0 ,origin[0]],
-            [0, origin[1]],
-            [0, origin[2]],
-            color='orange', linewidth=2)
+            ax.plot([0 ,origin[0]], [0, origin[1]], [0, origin[2]], color='orange', linewidth=2)
+            ax.plot([GMO_pos[0] ,origin[0]], [GMO_pos[1], origin[1]], [GMO_pos[2], origin[2]], color='green', linewidth=2)
 
         ax.set_title(f"t = {time[frame]:.1f}s")
 
@@ -564,7 +564,7 @@ PlotSimulation(False)
 
 #Task 9
 tstep = 1
-tmax = 7097*2+tstep
+tmax = tMAX+tstep
 time = np.arange(0, tmax, tstep)
 sigma_ref_N = np.zeros((len(time), 3))
 omega_ref_N = np.zeros((len(time), 3))
@@ -614,11 +614,11 @@ print("---------------------------------------------------")
 print(f"Task 9.4 sigma @ t = {t_eval}, {sigma_teval}")
 printfile("Task9p4.txt",sigma_teval)
 
-PlotSimulation(True,30)
+PlotSimulation(False,30)
 
 #Task 10
 tstep = 1
-tmax = 7097*2+tstep
+tmax = tMAX+tstep
 time = np.arange(0, tmax, tstep)
 sigma_ref_C = np.zeros((len(time), 3))
 omega_ref_C = np.zeros((len(time), 3))
@@ -668,4 +668,98 @@ print("---------------------------------------------------")
 print(f"Task 10.4 sigma @ t = {t_eval}, {sigma_teval}")
 printfile("Task10p4.txt",sigma_teval)
 
-PlotSimulation(True,30)
+PlotSimulation(False,30)
+
+#Task 11
+tstep = 1
+tmax = tMAX+tstep
+time = np.arange(0, tmax, tstep)
+Mode = np.zeros((len(time), 1))
+alfa = np.zeros((len(time), 1))
+r_LMO_n2 = np.zeros((len(time), 1))
+
+
+for i in range(0,len(time)):
+    t = time[i]
+    # Mode decition Logic
+    r_LMO = get_rLMO(t)
+    r_GMO = get_rGMO(t)
+    cos_alfa = np.dot(r_LMO,r_GMO)/(np.linalg.norm(rLMO)*np.linalg.norm(rGMO))
+    alfa[i] = np.arccos(cos_alfa)/np.pi*180
+    r_LMO_n2[i] = r_LMO[1]/rLMO
+    if (r_LMO_n2[i]>0):
+        # Power
+        Mode[i] = 1
+        RsN = get_RsN(t)
+        sigma_ref[i]= DCM2MRP(RsN)
+        omega_ref[i] = RsN.T @ get_wRsN(t)
+    elif (abs(alfa[i]) < 35):
+        # Communication
+        Mode[i] = 2
+        RcN = get_RcN(t)
+        sigma_ref[i]= DCM2MRP(RcN)
+        omega_ref[i] = RcN.T @ get_wRcN(t)
+    else:
+        # Science
+        Mode[i] = 3
+        RnN = get_RnN(t)
+        sigma_ref[i]= DCM2MRP(RnN)
+        omega_ref[i] = RnN.T @ get_wRnN(t)
+
+    if np.linalg.norm(sigma_ref[i])>=1:
+        sigma_ref[i] = MRP2Shadow(sigma_ref[i])
+
+L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
+sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time, L,
+                                                              K, P, 0, 0, 0, 1e100, sigma_ref, omega_ref)
+snorm = np.zeros((len(time), 1))
+for i in range(1, len(time)):
+    snorm[i] = np.linalg.norm(sigma[i])
+
+t_eval = 300
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 1011 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task11p1.txt",sigma_teval)
+
+t_eval = 2100
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 11.2 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task11p2.txt",sigma_teval)
+
+t_eval = 3400
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 11.3 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task11p3.txt",sigma_teval)
+
+t_eval = 4400
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 11.4 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task11p4.txt",sigma_teval)
+
+t_eval = 5600
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 11.5 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task11p5.txt",sigma_teval)
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, Mode, label='Mode', color='blue')
+plt.plot(time, r_LMO_n2, label='r_LMO', color='orange')
+plt.plot(time, alfa/10, label='alfa', color='red')
+plt.xlabel('Time [s]')
+plt.title('Pointing Mode')
+plt.grid(True)
+plt.tight_layout()
+plt.legend()
+plt.show()
+
+PlotSimulation(True,3)
