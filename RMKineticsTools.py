@@ -107,16 +107,16 @@ def EOM_Rotation_RMP_Integrator(InertiaTensor,sigma0, omega0, t_eval,sigma_ref=N
 
         u[t_index-1]= term_1 + term_2 + term_3 + term_4 + term_5
 
-        k1s,k1o  = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k1s,k1o  = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                               sigma[t_index-1],omega[t_index-1],u[t_index-1],L)
 
-        k2s,k2o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k2s,k2o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                               sigma[t_index-1]+0.5*dt*k1s,
                                                               omega[t_index-1]+0.5*dt*k1o,u[t_index-1],L)
-        k3s,k3o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k3s,k3o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                                 sigma[t_index-1]+0.5*dt*k2s,
                                                                 omega[t_index-1]+0.5*dt*k2o,u[t_index-1],L)    
-        k4s,k4o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,     
+        k4s,k4o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,     
                                                                 sigma[t_index-1]+dt*k3s,
                                                                 omega[t_index-1]+dt*k3o,u[t_index-1],L)
         deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
@@ -248,16 +248,16 @@ def EOM_Rotation_RMP_Integrator_KI(InertiaTensor,sigma0, omega0, t_eval,sigma_re
 
 
 
-        k1s,k1o  = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k1s,k1o  = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                               sigma[t_index-1],omega[t_index-1],u[t_index-1],L)
 
-        k2s,k2o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k2s,k2o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                               sigma[t_index-1]+0.5*dt*k1s,
                                                               omega[t_index-1]+0.5*dt*k1o,u[t_index-1],L)
-        k3s,k3o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k3s,k3o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                                 sigma[t_index-1]+0.5*dt*k2s,
                                                                 omega[t_index-1]+0.5*dt*k2o,u[t_index-1],L)    
-        k4s,k4o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,     
+        k4s,k4o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,     
                                                                 sigma[t_index-1]+dt*k3s,
                                                                 omega[t_index-1]+dt*k3o,u[t_index-1],L)
         deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
@@ -354,16 +354,16 @@ def Control_Linear_CLD_MPR(InertiaTensor,sigma0, omega0, K, P, umax, t_eval,sigm
             u[t_index-1][2]=-umax   
 
 
-        k1s,k1o  = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k1s,k1o  = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                               sigma[t_index-1],omega[t_index-1],u[t_index-1],L)
 
-        k2s,k2o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k2s,k2o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                               sigma[t_index-1]+0.5*dt*k1s,
                                                               omega[t_index-1]+0.5*dt*k1o,u[t_index-1],L)
-        k3s,k3o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,
+        k3s,k3o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,
                                                                 sigma[t_index-1]+0.5*dt*k2s,
                                                                 omega[t_index-1]+0.5*dt*k2o,u[t_index-1],L)    
-        k4s,k4o = EOM_Rotation_RMP_Differential(InertiaTensor,invInertiaTensor,     
+        k4s,k4o = EOM_Rotation_MRP_Differential(InertiaTensor,invInertiaTensor,     
                                                                 sigma[t_index-1]+dt*k3s,
                                                                 omega[t_index-1]+dt*k3o,u[t_index-1],L)
         deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
