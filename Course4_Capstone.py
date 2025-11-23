@@ -581,7 +581,7 @@ omega_ref = omega_ref_N
 
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time, L,
-                                                              K, P, 1, 1, 0, 1e100, sigma_ref, omega_ref)
+                                                              K, P, 0, 0, 0, 1e100, sigma_ref, omega_ref)
 snorm = np.zeros((len(time), 1))
 for i in range(1, len(time)):
     snorm[i] = np.linalg.norm(sigma[i])
@@ -613,5 +613,59 @@ sigma_teval = sigma[index_t_eval]
 print("---------------------------------------------------")
 print(f"Task 9.4 sigma @ t = {t_eval}, {sigma_teval}")
 printfile("Task9p4.txt",sigma_teval)
+
+PlotSimulation(True,30)
+
+#Task 10
+tstep = 1
+tmax = 7097*2+tstep
+time = np.arange(0, tmax, tstep)
+sigma_ref_C = np.zeros((len(time), 3))
+omega_ref_C = np.zeros((len(time), 3))
+for i in range(0,len(time)):
+    t = time[i]
+    RcN = get_RcN(t)
+    sigma_ref_C[i]= DCM2MRP(RcN)
+    if np.linalg.norm(sigma_ref_C[i])>1:
+        sigma_ref_C[i] = MRP2Shadow(sigma_ref_C[i])
+    omega_ref_C[i] = RcN.T @ get_wRcN(t)
+
+sigma_ref =  sigma_ref_C
+omega_ref = omega_ref_C
+
+L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
+sigma,omega,angles,sigmaBR,u,H,T = EOM_MRP_Control_Integrator(InertiaTensor,s_BN_t0, w_BN_B_t0, time, L,
+                                                              K, P, 0, 0, 0, 1e100, sigma_ref, omega_ref)
+snorm = np.zeros((len(time), 1))
+for i in range(1, len(time)):
+    snorm[i] = np.linalg.norm(sigma[i])
+
+t_eval = 15
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 10.1 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task10p1.txt",sigma_teval)
+
+t_eval = 100
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 10.2 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task10p2.txt",sigma_teval)
+
+t_eval = 200
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 10.3 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task10p3.txt",sigma_teval)
+
+t_eval = 400
+index_t_eval = np.argmin(np.abs(time - t_eval))
+sigma_teval = sigma[index_t_eval]
+print("---------------------------------------------------")
+print(f"Task 10.4 sigma @ t = {t_eval}, {sigma_teval}")
+printfile("Task10p4.txt",sigma_teval)
 
 PlotSimulation(True,30)
