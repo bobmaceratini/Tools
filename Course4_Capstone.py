@@ -574,7 +574,7 @@ for i in range(0,len(time)):
     sigma_ref_N[i]= DCM2MRP(RnN)
     if np.linalg.norm(sigma_ref_N[i])>1:
         sigma_ref_N[i] = MRP2Shadow(sigma_ref_N[i])
-    omega_ref_N[i] = RnN.T @ get_wRnN(t)
+    omega_ref_N[i] = RnN @ get_wRnN(t)
 
 sigma_ref =  sigma_ref_N
 omega_ref = omega_ref_N
@@ -614,7 +614,7 @@ print("---------------------------------------------------")
 print(f"Task 9.4 sigma @ t = {t_eval}, {sigma_teval}")
 printfile("Task9p4.txt",sigma_teval)
 
-PlotSimulation(False,30)
+PlotSimulation(True,30)
 
 #Task 10
 tstep = 1
@@ -628,7 +628,7 @@ for i in range(0,len(time)):
     sigma_ref_C[i]= DCM2MRP(RcN)
     if np.linalg.norm(sigma_ref_C[i])>1:
         sigma_ref_C[i] = MRP2Shadow(sigma_ref_C[i])
-    omega_ref_C[i] = RcN.T @ get_wRcN(t)
+    omega_ref_C[i] = RcN @ get_wRcN(t)
 
 sigma_ref =  sigma_ref_C
 omega_ref = omega_ref_C
@@ -668,7 +668,7 @@ print("---------------------------------------------------")
 print(f"Task 10.4 sigma @ t = {t_eval}, {sigma_teval}")
 printfile("Task10p4.txt",sigma_teval)
 
-PlotSimulation(False,30)
+PlotSimulation(True,30)
 
 #Task 11
 tstep = 1
@@ -692,19 +692,19 @@ for i in range(0,len(time)):
         Mode[i] = 1
         RsN = get_RsN(t)
         sigma_ref[i]= DCM2MRP(RsN)
-        omega_ref[i] = RsN.T @ get_wRsN(t)
+        omega_ref[i] = RsN @ get_wRsN(t)
     elif (abs(alfa[i]) < 35):
         # Communication
         Mode[i] = 2
         RcN = get_RcN(t)
         sigma_ref[i]= DCM2MRP(RcN)
-        omega_ref[i] = RcN.T @ get_wRcN(t)
+        omega_ref[i] = RcN @ get_wRcN(t)
     else:
         # Science
         Mode[i] = 3
         RnN = get_RnN(t)
         sigma_ref[i]= DCM2MRP(RnN)
-        omega_ref[i] = RnN.T @ get_wRnN(t)
+        omega_ref[i] = RnN @ get_wRnN(t)
 
     if np.linalg.norm(sigma_ref[i])>=1:
         sigma_ref[i] = MRP2Shadow(sigma_ref[i])
@@ -762,4 +762,4 @@ plt.tight_layout()
 plt.legend()
 plt.show()
 
-PlotSimulation(True,3)
+PlotSimulation(True,10)
