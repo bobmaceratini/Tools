@@ -366,7 +366,7 @@ def MRPSum(s1,s2):
     s1_sq = np.dot(s1,s1)
     s2_sq = np.dot(s2,s2)
     denominator = 1 + s1_sq*s2_sq - 2*np.dot(s1,s2)
-    if abs(denominator) < 0.0001:
+    if abs(denominator) < 0.001:
         s1=MRP2Shadow(s1)
         s1_sq = np.dot(s1,s1)
         s2_sq = np.dot(s2,s2)
@@ -374,13 +374,15 @@ def MRPSum(s1,s2):
         
     numerator = (1 - s1_sq)*s2 + (1 - s2_sq)*s1 - 2*np.cross(s2,s1)
     s_comp = numerator/denominator
+    if (np.linalg.norm(s_comp)>=1):
+        s_comp=MRP2Shadow(s_comp)
     return s_comp
 
 def MRPSub(s1,s):
     s1_sq = np.dot(s1,s1)
     s_sq = np.dot(s,s)
     denominator = 1 + s1_sq*s_sq + 2*np.dot(s1,s)
-    if abs(denominator) < 0.0001:
+    if abs(denominator) < 0.001:
         s1 = MRP2Shadow(s1)
         s1_sq = np.dot(s1,s1)
         s_sq = np.dot(s,s)
