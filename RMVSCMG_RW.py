@@ -5,19 +5,25 @@ from RMKineticsTools import *
 
 
 def EOM_VSCMG_Single(IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
-                     bigOmega, gs, gt, gg, L, us=0, ug=0):
+                     bigOmega, gs0, gt0, gg0, gamma0, L, us=0, ug=0):
 
     Is1,Is2,Is3 = IS_v
     Js,Jt,Jg = IJ_v
 
+    g = gamma
+    gs = gs0*np.cos(g-gamma0) + gt0*np.sin(g-gamma0)
+    gt = -gs0*np.sin(g-gamma0) + gt0*np.cos(g-gamma0)
+    gg = gg0
+
+
     InertiaTensor_S_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
-    InertiaTensor_J_B = Js*gs.T@gs + Jt*gt.T@gt + Jg*gg.T@gg 
-    InertiaTensor_RJ_B = InertiaTensor_S_B + (Js-IWs)*gs.T@gs + Jt*gt.T@gt
+    InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gt) 
+    InertiaTensor_RJ_B = InertiaTensor_S_B + (Js-IWs)*np.outer(gs,gs) + Jt*np.outer(gt,gt)
     InertiaTensor_B = InertiaTensor_S_B + InertiaTensor_J_B
 
-    ws = gs.T @ omega
-    wt = gt.T @ omega
-    wg = gg.T @ omega
+    ws = np.dot(gs,omega)
+    wt = np.dot(gt,omega)
+    wg = np.dot(gg,omega)
 
     ugs = gs * (us -IWs*wt*gamma_dot + gamma_dot*wt*(Js-Jt+Jg))
     ugt = gt * (gamma_dot*ws*(Js-Jt-Jg) + IWs*bigOmega*wg)
@@ -31,17 +37,17 @@ def EOM_VSCMG_Single(IS_v,IJ_v, IWs, omega, gamma, gamma_dot,
 
     omega_dot = inv_InertiaTensor_RJ_B @ ( X )
 
-    bigOmega_dot = us/IWs - gamma_dot*wt - gs.T@omega_dot
-    gamma_dot_dot = 1/Jg*(ug + ws*wt*(Js-Jt)+IWs*bigOmega*wt) - gg.T@omega_dot
+    bigOmega_dot = us/IWs - gamma_dot*wt - np.dot(gs,omega_dot)
+    gamma_dot_dot = 1/Jg*(ug + ws*wt*(Js-Jt)+IWs*bigOmega*wt) - np.dot(gg,omega_dot)
 
     return omega_dot, gamma_dot_dot, bigOmega_dot
 
 def EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, sigma, omega,
-                                                   gamma, gamma_dot, bigOmega,gs,gt,gg,L):
+                                                   gamma, gamma_dot, bigOmega,gs0,gt0,gg0,gamma0,L):
 
     sigma_dot = MRP_Differential(sigma, omega)
     omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Single(IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
-                     bigOmega, gs, gt, gg, L)
+                     bigOmega, gs0, gt0, gg0, gamma0, L)
 
     delta_sigma = sigma_dot*dt
     delta_omega = omega_dot*dt
@@ -99,25 +105,21 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
         gdot = gamma_dot[t_index-1]
         bo = bigOmega[t_index-1]
 
-        gs = gs0*np.cos(g-gamma0) + gt0*np.sin(g-gamma0)
-        gt = -gs0*np.sin(g-gamma0) + gt0*np.cos(g-gamma0)
-        gg = gg0
-
 
         k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s, o,
-                                                   g, gdot, bo, gs,gt,gg,L)
+                                                   g, gdot, bo, gs0,gt0,gg0,gamma0,L)
 
         k2s, k2o, k2g, k2gdot, k2bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s+0.5*k1s, 
                                                                           o+0.5*k1o, g+0.5*k1g, gdot+0.5*k1gdot,
-                                                                          bo+0.5*k1bo, gs,gt,gg,L)
+                                                                          bo+0.5*k1bo, gs0,gt0,gg0,gamma0,L)
         
         k3s, k3o, k3g, k3gdot, k3bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s+0.5*k2s, 
                                                                           o+0.5*k2o, g+0.5*k2g, gdot+0.5*k2gdot,
-                                                                          bo+0.5*k2bo, gs,gt,gg,L)
+                                                                          bo+0.5*k2bo, gs0,gt0,gg0,gamma0,L)
 
         k4s, k4o, k4g, k4gdot, k4bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s+k3s, 
                                                                           o+k3o, g+k3g, gdot+k3gdot,
-                                                                          bo+k3bo, gs,gt,gg,L)
+                                                                          bo+k3bo, gs0,gt0,gg0,gamma0,L)
         # body frame angular velocity and MRP update
         deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
         deltaomega = (1/6)*(k1o + 2*k2o +  2*k3o + k4o)
