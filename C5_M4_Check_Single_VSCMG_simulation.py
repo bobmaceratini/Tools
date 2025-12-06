@@ -43,7 +43,7 @@ tmax = 30+tstep
 time = np.arange(0, tmax, tstep)
 
 sigma,omega,angles,gamma_dot,gamma,bigOmega,H_B,T = EOM_MRP_VSCMG_Single_Integrator(Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
-                                                                           gg_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
+                                                                           gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
                                                                            gamma_dot_t0, bigOmega_t0, L)
 
 plt.figure(figsize=(10, 6))
@@ -59,9 +59,9 @@ plt.tight_layout()
 plt.show()
 
 plt.figure(figsize=(10, 6))
-plt.plot(time, omega[:,0], label='s(1)', color='blue')
-plt.plot(time, omega[:,1], label='s(2)', color='green')
-plt.plot(time, omega[:,2], label='s(3)', color='orange')
+plt.plot(time, omega[:,0], label='w(1)', color='blue')
+plt.plot(time, omega[:,1], label='w(2)', color='green')
+plt.plot(time, omega[:,2], label='w(3)', color='orange')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
 plt.title('omega')
@@ -71,7 +71,7 @@ plt.tight_layout()
 plt.show()
 
 plt.figure(figsize=(10, 6))
-plt.plot(time, bigOmega[:,0], label='s(1)', color='blue')
+plt.plot(time, bigOmega[:,0], label='Omega', color='blue')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
 plt.title('big Omega')
@@ -81,7 +81,7 @@ plt.tight_layout()
 plt.show()
 
 plt.figure(figsize=(10, 6))
-plt.plot(time, gamma[:,0], label='s(1)', color='blue')
+plt.plot(time, gamma[:,0], label='gamma', color='blue')
 plt.xlabel('Time [s]')
 plt.ylabel('rad')
 plt.title('gamma')
