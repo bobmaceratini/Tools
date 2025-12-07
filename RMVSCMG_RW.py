@@ -2,7 +2,7 @@ import numpy as np
 from RMKinematicTools import *
 from RMKineticsTools import *
 
-def EOM_VSCMG_Single(dt, IS_v,IJ_v, IWs, omega, omega_dot, gamma, gamma_dot, 
+def EOM_VSCMG_Single(dt, IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
                      bigOmega, gs0, gt0, gg0, gamma0, L, us=0, ug=0):
 
     Is1,Is2,Is3 = IS_v
@@ -40,14 +40,14 @@ def EOM_VSCMG_Single(dt, IS_v,IJ_v, IWs, omega, omega_dot, gamma, gamma_dot,
 
     return omega_dot, gamma_dot_dot, bigOmega_dot
 
-def EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, sigma, omega, omega_dot,
+def EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, sigma, omega,
                                                    gamma, gamma_dot, bigOmega,gs0,gt0,gg0,gamma0,L):
 
     sigma_dot = MRP_Differential(sigma, omega)
     delta_sigma = sigma_dot*dt
     delta_gamma = gamma_dot*dt
 
-    omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Single(dt, IS_v,IJ_v, IWs, omega, omega_dot, gamma, gamma_dot, 
+    omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Single(dt, IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
                      bigOmega, gs0, gt0, gg0, gamma0, L)
 
     delta_omega = omega_dot*dt
@@ -69,6 +69,7 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
 
     InertiaTensor_S_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
     InertiaTensor_J_G = np.array([[Js,0,0],[0,Jt,0],[0,0,Jg]])
+    InertiaTensor_R_G = np.array([[IWs,0,0],[0,0,0],[0,0,0]])
 
     # empty output array definition
     sigma = np.zeros((N, 3))
@@ -88,8 +89,31 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
     gamma_dot[0] = gamma_dot0
     bigOmega[0] = bigOmega0
 
-    H_B[0] = 0
-    T[0] = 0
+ 
+    gs = gs0
+    gt = gt0
+    gg = gg0
+
+    BN = MRP2DCM(sigma[0])
+    omega_G_B = omega[0] + gamma_dot[0]*gg
+    omega_R_B = omega[0] + gamma_dot[0]*gg + bigOmega[0]*gs
+
+    
+    InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gt) 
+    InertiaTensor_R_B = IWs*np.outer(gs,gs) 
+
+    HS_B = InertiaTensor_S_B @ omega[0]
+    HJ_B = InertiaTensor_J_B @ omega_G_B
+    HW_B = InertiaTensor_R_B @ (omega_R_B)
+
+    H_B[0] = BN.T@(HS_B + HJ_B + HW_B)
+
+    T_B = 0.5*np.dot(omega[0], HS_B)
+    T_G = 0.5*np.dot(omega_G_B, HJ_B)
+    T_R = 0.5*IWs*bigOmega[0]**2
+
+    T[0] = T_B + T_G + T_R
+
 
     angles[0]=MRP2EU_ZYX(sigma0)
     
@@ -97,25 +121,24 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
         dt = t_eval[t_index] - t_eval[t_index - 1]
         s = sigma[t_index-1]
         o = omega[t_index-1]
-        odot = omega_dot[t_index-1]
         g = gamma[t_index-1]
         gdot = gamma_dot[t_index-1]
         bo = bigOmega[t_index-1]
 
 
-        k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s, o,odot,
+        k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s, o,
                                                    g, gdot, bo, gs0,gt0,gg0,gamma0,L)
 
         k2s, k2o, k2g, k2gdot, k2bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s+0.5*k1s, 
-                                                                          o+0.5*k1o, odot, g+0.5*k1g, gdot+0.5*k1gdot,
+                                                                          o+0.5*k1o, g+0.5*k1g, gdot+0.5*k1gdot,
                                                                           bo+0.5*k1bo, gs0,gt0,gg0,gamma0,L)
         
         k3s, k3o, k3g, k3gdot, k3bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s+0.5*k2s, 
-                                                                          o+0.5*k2o, odot, g+0.5*k2g, gdot+0.5*k2gdot,
+                                                                          o+0.5*k2o, g+0.5*k2g, gdot+0.5*k2gdot,
                                                                           bo+0.5*k2bo, gs0,gt0,gg0,gamma0,L)
 
         k4s, k4o, k4g, k4gdot, k4bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s+k3s, 
-                                                                          o+k3o, odot, g+k3g, gdot+k3gdot,
+                                                                          o+k3o, g+k3g, gdot+k3gdot,
                                                                           bo+k3bo, gs0,gt0,gg0,gamma0,L)
         # body frame angular velocity and MRP update
         deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
@@ -141,8 +164,28 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
             sigma[t_index] = MRP2Shadow(sigma[t_index])        
         angles[t_index]=MRP2EU_ZYX(sigma[t_index])
 
+        g = gamma[t_index]
+        gs = gs0*np.cos(g-gamma0) + gt0*np.sin(g-gamma0)
+        gt = -gs0*np.sin(g-gamma0) + gt0*np.cos(g-gamma0)
+        gg = gg0
 
-        H_B[t_index] = 0
-        T[t_index] = 0
+        BN = MRP2DCM(sigma[t_index])
+        omega_G_B = omega[t_index] + gamma_dot[t_index]*gg
+        omega_R_B = omega[t_index] + gamma_dot[t_index]*gg + bigOmega[t_index]*gs
+
+        InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gt) 
+        InertiaTensor_R_B = IWs*np.outer(gs,gs) 
+
+        HS_B = InertiaTensor_S_B @ omega[t_index]
+        HJ_B = InertiaTensor_J_B @ omega_G_B
+        HW_B = InertiaTensor_R_B @ (omega_R_B)
+
+        H_B[t_index] = BN.T@(HS_B + HJ_B + HW_B)
+
+        T_B = 0.5*np.dot(omega[t_index], HS_B)
+        T_G = 0.5*np.dot(omega_G_B, HJ_B)
+        T_R = 0.5*IWs*bigOmega[t_index]**2
+
+        T[t_index] = T_B + T_G + T_R
 
     return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_B,T

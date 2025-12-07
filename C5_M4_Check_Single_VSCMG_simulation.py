@@ -42,7 +42,7 @@ tstep = 0.1
 tmax = 30+tstep
 time = np.arange(0, tmax, tstep)
 
-sigma,omega,angles,gamma_dot,gamma,bigOmega,H_B,T = EOM_MRP_VSCMG_Single_Integrator(Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
+sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T = EOM_MRP_VSCMG_Single_Integrator(Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
                                                                            gamma_dot_t0, bigOmega_t0, L)
 
@@ -89,3 +89,44 @@ plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, H_N, label='H', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('Nm')
+plt.title('H')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, T, label='T', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('J,')
+plt.title('T')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+t_eval = 30
+index_t_eval = np.argmin(np.abs(time - t_eval))
+
+H_N_t = H_N[index_t_eval]
+T_t = T[index_t_eval]
+sigma_t = sigma[index_t_eval]
+omega_t = omega[index_t_eval]
+gamma_t = gamma[index_t_eval]
+gamma_dot_t = gamma_dot[index_t_eval]
+bigOmega_t = bigOmega[index_t_eval] 
+
+print("At time t =", t_eval, "s:")
+print("Angular Momentum H_N (Nm*s):", H_N_t)    
+print("Kinetic Energy T (J):", T_t)
+print("MRP sigma_BN:", sigma_t)
+print("Angular Velocity omega_BN_B (rad/s):", omega_t)
+print("Gimbal Angle gamma (rad):", gamma_t)
+print("Gimbal Rate gamma_dot (rad/s):", gamma_dot_t)
+print("RW Speed bigOmega (rad/s):", bigOmega_t)
