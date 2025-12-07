@@ -68,8 +68,6 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
     Js,Jt,Jg = IJ_v
 
     InertiaTensor_S_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
-    InertiaTensor_J_G = np.array([[Js,0,0],[0,Jt,0],[0,0,Jg]])
-    InertiaTensor_R_G = np.array([[IWs,0,0],[0,0,0],[0,0,0]])
 
     # empty output array definition
     sigma = np.zeros((N, 3))
@@ -89,7 +87,6 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
     gamma_dot[0] = gamma_dot0
     bigOmega[0] = bigOmega0
 
- 
     gs = gs0
     gt = gt0
     gg = gg0
@@ -97,20 +94,19 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
     BN = MRP2DCM(sigma[0])
     omega_G_B = omega[0] + gamma_dot[0]*gg
     omega_R_B = omega[0] + gamma_dot[0]*gg + bigOmega[0]*gs
-
     
     InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
     InertiaTensor_R_B = IWs*np.outer(gs,gs) 
 
     HS_B = InertiaTensor_S_B @ omega[0]
     HJ_B = InertiaTensor_J_B @ omega_G_B
-    HW_B = InertiaTensor_R_B @ (omega_R_B)
+    HW_B = InertiaTensor_R_B @ omega_R_B
 
     H_B[0] = BN.T@(HS_B + HJ_B + HW_B)
 
     T_B = 0.5*np.dot(omega[0], HS_B)
     T_G = 0.5*np.dot(omega_G_B, HJ_B)
-    T_R = 0.5*IWs*bigOmega[0]**2
+    T_R = 0.5*np.dot(omega_R_B, HW_B)
 
     T[0] = T_B + T_G + T_R
 
@@ -158,7 +154,6 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
         gamma_dot[t_index] = gamma_dot[t_index-1] + deltagammadot
         gamma[t_index] = gamma[t_index-1] + deltagamma
         bigOmega[t_index] = bigOmega[t_index-1] + deltabigOmega
-        omega_dot[t_index] = deltaomega/dt
 
         if np.linalg.norm(sigma[t_index]) > 1:
             sigma[t_index] = MRP2Shadow(sigma[t_index])        
@@ -171,20 +166,19 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
 
         BN = MRP2DCM(sigma[t_index])
         omega_G_B = omega[t_index] + gamma_dot[t_index]*gg
-        omega_R_B = omega[t_index]*0 + gamma_dot[t_index]*gg*0 + bigOmega[t_index]*gs
+        omega_R_B = omega[t_index] + gamma_dot[t_index]*gg + bigOmega[t_index]*gs
 
         InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
         InertiaTensor_R_B = IWs*np.outer(gs,gs) 
 
         HS_B = InertiaTensor_S_B @ omega[t_index]
         HJ_B = InertiaTensor_J_B @ omega_G_B
-        HW_B = InertiaTensor_R_B @ (omega_R_B)
+        HW_B = InertiaTensor_R_B @ omega_R_B
 
         H_B[t_index] = BN.T@(HS_B + HJ_B + HW_B)
 
         T_B = 0.5*np.dot(omega[t_index], HS_B)
         T_G = 0.5*np.dot(omega_G_B, HJ_B)
-        #T_R = 0.5*IWs*bigOmega[t_index]**2
         T_R = 0.5*np.dot(omega_R_B, HW_B)
 
         T[t_index] = T_B + T_G + T_R

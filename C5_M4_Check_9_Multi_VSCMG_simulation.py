@@ -14,11 +14,11 @@ Is1 = 86.0
 Is2 = 85.0
 Is3 = 113.0
 
-Js = 0.13/4
-Jt = 0.04/4
-Jg = 0.03/4
+Js = 0.13
+Jt = 0.04
+Jg = 0.03
 
-IWs = 0.1/4
+IWs = 0.1
 num_gimb = 4
 
 bigOmega_t0 = np.zeros(4) # Initial RW speeds for 4 VSCMGs
@@ -30,8 +30,8 @@ bigOmega_t0[3] = 14.4 #
 gamma_t0 = np.zeros(4) # Initial Gimbal positions
 gamma_t0[0] = 0/180*np.pi # 
 gamma_t0[1] = 0/180*np.pi # 
-gamma_t0[2] = 90/180*np.pi*0 # 
-gamma_t0[3] = -90/180*np.pi*0 # 
+gamma_t0[2] = 90/180*np.pi # 
+gamma_t0[3] = -90/180*np.pi # 
 
 
 gg_B_t0 = np.zeros((3,4))
@@ -41,24 +41,15 @@ gt_B_t0 = np.zeros((3,4))
 tetaG = 54.75/180*np.pi # Gimbal angular position for VSCMG 
 
 gg_B_t0[:,0] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
-gg_B_t0[:,1] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
-gg_B_t0[:,2] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
-gg_B_t0[:,3] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
-'''
 gg_B_t0[:,1] = np.array([-np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 1
 gg_B_t0[:,2] = np.array([0, np.cos(tetaG), np.sin(tetaG)]  )  # Gimbal axis for VSCMG 2
 gg_B_t0[:,3] = np.array([0, -np.cos(tetaG),  np.sin(tetaG)]  )  # Gimbal axis for VSCMG 3
-'''
+
 
 gs_B_t0[:,0] = np.array([0,1,0])
-gs_B_t0[:,1] = np.array([0,1,0])
-gs_B_t0[:,2] = np.array([0,1,0])
-gs_B_t0[:,3] = np.array([0,1,0])
-'''
 gs_B_t0[:,1] = np.array([0,-1,0])
 gs_B_t0[:,2] = np.array([1,0,0])
 gs_B_t0[:,3] = np.array([-1,0,0])
-'''
 
 gt_B_t0[:,0] = np.cross(gg_B_t0[:,0], gs_B_t0[:,0])
 gt_B_t0[:,1] = np.cross(gg_B_t0[:,1], gs_B_t0[:,1]) 
@@ -83,6 +74,27 @@ time = np.arange(0, tmax, tstep)
 sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T = EOM_MRP_VSCMG_Multi_Integrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
                                                                            gamma_dot_t0, bigOmega_t0, L)
+
+
+t_eval = 30.1
+index_t_eval = np.argmin(np.abs(time - t_eval))
+
+H_N_t = H_N[:,index_t_eval]
+T_t = T[index_t_eval]
+sigma_t = sigma[:,index_t_eval]
+omega_t = omega[:,index_t_eval]
+gamma_t = gamma[:,index_t_eval]
+gamma_dot_t = gamma_dot[:,index_t_eval]
+bigOmega_t = bigOmega[:,index_t_eval] 
+
+print("At time t =", t_eval, "s:")
+print("Angular Momentum H_N (Nm*s): [{},{},{}]".format(H_N_t[0], H_N_t[1], H_N_t[2]))    
+print("Kinetic Energy T (J):", T_t)
+print("MRP sigma_BN: [{},{},{}]".format(sigma_t[0], sigma_t[1], sigma_t[2]))
+print("Angular Velocity omega_BN_B (rad/s): [{},{},{}]".format(omega_t[0], omega_t[1], omega_t[2]))
+print("RW Speed bigOmega (rad/s): [{},{},{},{}]".format(bigOmega_t[0], bigOmega_t[1], bigOmega_t[2], bigOmega_t[3]))
+print("Gimbal Angle gamma (rad):[{},{},{},{}]".format(gamma_t[0], gamma_t[1], gamma_t[2], gamma_t[3]))
+
 
 plt.figure(figsize=(10, 6))
 plt.plot(time, sigma[0,:], label='s(1)', color='blue')
@@ -153,22 +165,3 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-
-t_eval = 30
-index_t_eval = np.argmin(np.abs(time - t_eval))
-
-H_N_t = H_N[:,index_t_eval]
-T_t = T[index_t_eval]
-sigma_t = sigma[:,index_t_eval]
-omega_t = omega[:,index_t_eval]
-gamma_t = gamma[:,index_t_eval]
-gamma_dot_t = gamma_dot[:,index_t_eval]
-bigOmega_t = bigOmega[:,index_t_eval] 
-
-print("At time t =", t_eval, "s:")
-print("Angular Momentum H_N (Nm*s):", H_N_t)    
-print("Kinetic Energy T (J):", T_t)
-print("MRP sigma_BN:", sigma_t)
-print("Angular Velocity omega_BN_B (rad/s):", omega_t)
-print("RW Speed bigOmega (rad/s):", bigOmega_t)
-print("Gimbal Angle gamma (rad):", gamma_t)
