@@ -10,45 +10,55 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 
 #-----------------------------------------------------------------------
-Is1 = 86
-Is2 = 85
-Is3 = 113
+Is1 = 86.0
+Is2 = 85.0
+Is3 = 113.0
 
-Js = 0.13
-Jt = 0.04
-Jg = 0.03
+Js = 0.13/4
+Jt = 0.04/4
+Jg = 0.03/4
 
-IWs = 0.1
+IWs = 0.1/4
 num_gimb = 4
 
-bigOmega_t0 = np.zeros(num_gimb) # Initial RW speeds for 4 VSCMGs
+bigOmega_t0 = np.zeros(4) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0] = 14.4 # 
 bigOmega_t0[1] = 14.4 # 
 bigOmega_t0[2] = 14.4 # 
 bigOmega_t0[3] = 14.4 # 
 
-gamma_t0 = np.zeros(num_gimb) # Initial Gimbal positions
+gamma_t0 = np.zeros(4) # Initial Gimbal positions
 gamma_t0[0] = 0/180*np.pi # 
 gamma_t0[1] = 0/180*np.pi # 
-gamma_t0[2] = 90/180*np.pi # 
-gamma_t0[3] = -90/180*np.pi # 
+gamma_t0[2] = 90/180*np.pi*0 # 
+gamma_t0[3] = -90/180*np.pi*0 # 
 
 
-gg_B_t0 = np.zeros((3,num_gimb))
-gs_B_t0 = np.zeros((3,num_gimb))
-gt_B_t0 = np.zeros((3,num_gimb))
+gg_B_t0 = np.zeros((3,4))
+gs_B_t0 = np.zeros((3,4))
+gt_B_t0 = np.zeros((3,4))
 
 tetaG = 54.75/180*np.pi # Gimbal angular position for VSCMG 
 
+gg_B_t0[:,0] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
 gg_B_t0[:,1] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
-gg_B_t0[:,0] = np.array([-np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 1
+gg_B_t0[:,2] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
+gg_B_t0[:,3] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 0
+'''
+gg_B_t0[:,1] = np.array([-np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 1
 gg_B_t0[:,2] = np.array([0, np.cos(tetaG), np.sin(tetaG)]  )  # Gimbal axis for VSCMG 2
 gg_B_t0[:,3] = np.array([0, -np.cos(tetaG),  np.sin(tetaG)]  )  # Gimbal axis for VSCMG 3
+'''
 
 gs_B_t0[:,0] = np.array([0,1,0])
+gs_B_t0[:,1] = np.array([0,1,0])
+gs_B_t0[:,2] = np.array([0,1,0])
+gs_B_t0[:,3] = np.array([0,1,0])
+'''
 gs_B_t0[:,1] = np.array([0,-1,0])
 gs_B_t0[:,2] = np.array([1,0,0])
 gs_B_t0[:,3] = np.array([-1,0,0])
+'''
 
 gt_B_t0[:,0] = np.cross(gg_B_t0[:,0], gs_B_t0[:,0])
 gt_B_t0[:,1] = np.cross(gg_B_t0[:,1], gs_B_t0[:,1]) 
@@ -66,7 +76,7 @@ Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
 
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
-tstep = 0.01
+tstep = 0.1
 tmax = 30+tstep
 time = np.arange(0, tmax, tstep)
 
@@ -160,6 +170,5 @@ print("Angular Momentum H_N (Nm*s):", H_N_t)
 print("Kinetic Energy T (J):", T_t)
 print("MRP sigma_BN:", sigma_t)
 print("Angular Velocity omega_BN_B (rad/s):", omega_t)
-print("Gimbal Angle gamma (rad):", gamma_t)
-print("Gimbal Rate gamma_dot (rad/s):", gamma_dot_t)
 print("RW Speed bigOmega (rad/s):", bigOmega_t)
+print("Gimbal Angle gamma (rad):", gamma_t)

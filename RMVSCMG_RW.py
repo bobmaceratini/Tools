@@ -99,7 +99,7 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
     omega_R_B = omega[0] + gamma_dot[0]*gg + bigOmega[0]*gs
 
     
-    InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gt) 
+    InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
     InertiaTensor_R_B = IWs*np.outer(gs,gs) 
 
     HS_B = InertiaTensor_S_B @ omega[0]
@@ -173,7 +173,7 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
         omega_G_B = omega[t_index] + gamma_dot[t_index]*gg
         omega_R_B = omega[t_index]*0 + gamma_dot[t_index]*gg*0 + bigOmega[t_index]*gs
 
-        InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gt) 
+        InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
         InertiaTensor_R_B = IWs*np.outer(gs,gs) 
 
         HS_B = InertiaTensor_S_B @ omega[t_index]
@@ -204,7 +204,7 @@ def EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot,
     Js,Jt,Jg = IJ_v
     
     InertiaTensor_S_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
-
+    InertiaTensor_RJ_B = InertiaTensor_S_B
     X = np.zeros(3)
 
     for i in range(num_gimb):
@@ -216,21 +216,18 @@ def EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot,
         wt = np.dot(gt,omega)
         wg = np.dot(gg,omega)
 
-        InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gt) 
-        InertiaTensor_RJ_B = InertiaTensor_S_B + (Js-IWs)*np.outer(gs,gs) + Jt*np.outer(gt,gt)
-        InertiaTensor_B = InertiaTensor_S_B + InertiaTensor_J_B
+        InertiaTensor_S_B += Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
+        InertiaTensor_RJ_B += (Js-IWs)*np.outer(gs,gs) + Jt*np.outer(gt,gt)
 
         ugs = gs * (us[i] -IWs*wt*gamma_dot[i] + gamma_dot[i]*wt*(Js-Jt+Jg))
         ugt = gt * (gamma_dot[i]*ws*(Js-Jt-Jg) + IWs*bigOmega[i]*(wg+gamma_dot[i]))
         ugg = gg * (ug[i] + ws*wt*(Js-Jt))
 
-
-        inv_InertiaTensor_RJ_B= np.linalg.inv(InertiaTensor_RJ_B)
-
         X += -ugs - ugt - ugg
 
+    inv_InertiaTensor_RJ_B= np.linalg.inv(InertiaTensor_RJ_B)
     w_tilde = tilde(omega)
-    X += -(w_tilde @ InertiaTensor_B @ omega) + L
+    X += -(w_tilde @ InertiaTensor_S_B @ omega) + L
     omega_dot = inv_InertiaTensor_RJ_B @ ( X )
 
     bigOmega_dot = np.zeros(num_gimb)
@@ -322,8 +319,8 @@ def EOM_MRP_VSCMG_Multi_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eva
         bo = bigOmega[:,t_index-1]
 
         
-        k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s, o,
-                                                   g, gdot, bo, gs0,gt0,gg0,gamma0,L)
+        k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s,
+                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0,L)
         
         k2s, k2o, k2g, k2gdot, k2bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s+0.5*k1s, 
                                                                           o+0.5*k1o, g+0.5*k1g, gdot+0.5*k1gdot,
@@ -377,13 +374,13 @@ def EOM_MRP_VSCMG_Multi_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eva
             TR[i] = 0.5*np.dot(omega_R_B, HW_B[:,i])
     
         HS_B[:,t_index] = InertiaTensor_S_B @ omega[:,t_index]
-        T[t_index] = 0.5*np.dot(omega[:,0], HS_B[:,0])
+        T[t_index] = 0.5*np.dot(omega[:,t_index], HS_B[:,t_index])
 
         for i in range(num_gimb):
             HS_B[:,t_index] += HJ_B[:,i] + HW_B[:,i]
             T[t_index] += TG[i] + TR[i]
 
-        H_N[:,t_index] = BN.T@(HS_B[:,t_index])
+        H_N[:,t_index] = BN.T @ (HS_B[:,t_index])
 
     return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T
 
