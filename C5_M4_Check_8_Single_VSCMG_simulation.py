@@ -38,7 +38,7 @@ gt_B_t0 = np.cross(gg_B_t0, gs_B_t0)
 
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
-tstep = 0.1
+tstep = 0.01
 tmax = 30+tstep
 time = np.arange(0, tmax, tstep)
 
