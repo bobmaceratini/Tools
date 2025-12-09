@@ -345,7 +345,7 @@ def EOM_MRP_VSCMG_Multi_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eva
         bigOmega[:,t_index] = bigOmega[:,t_index-1] + deltabigOmega
 
         if np.linalg.norm(sigma[:,t_index]) > 1:
-            sigma[t_index] = MRP2Shadow(sigma[:,t_index])        
+            sigma[:,t_index] = MRP2Shadow(sigma[:,t_index])        
         angles[:,t_index]=MRP2EU_ZYX(sigma[:,t_index])
 
 
@@ -379,7 +379,7 @@ def EOM_MRP_VSCMG_Multi_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eva
         HS_B[:,t_index] = InertiaTensor_S_B @ omega[:,t_index]
         #T[t_index] = 0.5*np.dot(omega[:,t_index], HS_B[:,t_index])
         T[t_index] = 0.5*(Is1*omega[0,t_index]**2 + Is2*omega[1,t_index]**2 + Is3*omega[2,t_index]**2)
-        
+
         for i in range(num_gimb):
             HS_B[:,t_index] += HJ_B[:,i] + HW_B[:,i]
             T[t_index] += TG[i] + TR[i]
@@ -403,3 +403,126 @@ def EOM_MRP_VSCMG_Multi_Differential(num_gimb,dt, IS_v,IJ_v, IWs, sigma, omega,
     delta_gamma = gamma_dot*dt
 
     return delta_sigma, delta_omega, delta_gamma, delta_gamma_dot, delta_bigOmega
+
+def EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, sigma, omega, bigOmega, GS, US, L):
+    
+    delta_sigma = np.zeros(3)
+    delta_omega = np.zeros(3)
+    delta_bigOmega = np.zeros(num_RW)
+
+    sigma_dot = MRP_Differential(sigma, omega)
+    omega_dot, bigOmega_dot = EOM_RW_Multi(num_RW, IRW, IWs, omega, bigOmega, GS, US , L)
+
+    delta_sigma = sigma_dot*dt
+    delta_omega = omega_dot*dt
+    delta_bigOmega = bigOmega_dot*dt
+
+    return delta_sigma, delta_omega, delta_bigOmega
+
+def EOM_RW_Multi(num_RW, IRW, IWs, omega, bigOmega, GS, US , L):
+
+    inv_IRW = np.linalg.inv(IRW)
+    w_tilde = tilde(omega)
+    hs = np.zeros((num_RW))
+
+    for i in range(num_RW):
+        gs = GS[:,i]
+        ws = np.dot(gs,omega)
+        hs[i] = IWs*(ws + bigOmega[i])
+        
+    X  = -(w_tilde @ IRW @ omega) - w_tilde @ GS @ hs - GS @ US + L
+    omega_dot = inv_IRW @ ( X )
+
+    bigOmega_dot = US/IWs - GS.T @ omega_dot
+
+    return omega_dot, bigOmega_dot
+
+def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, bigOmega0, L):
+
+    #def EOM_RW_Multi(num_RW, IRW, IWs, omega, bigOmega, GS, GT, GG, US , L):
+
+    # Simulation time lenght
+    N=len(t_eval)
+    
+    # Inertia elements assignement
+    Is1,Is2,Is3 = IS_v
+    # Spacecraft inertia tensor
+    IRW = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+
+    # empty output array definition
+    sigma = np.zeros((3, N))
+    omega = np.zeros((3, N))
+    omega_dot = np.zeros((3, N))
+    bigOmega = np.zeros((num_RW, N))
+    angles = np.zeros((3, N))
+    H_N = np.zeros((3, N))
+    HS_B = np.zeros((3, N))
+    TR = np.zeros((num_RW))
+    T = np.zeros((N))
+
+    # states Initializations
+    sigma[:,0] = sigma0
+    omega[:,0] = omega0
+    
+    BN = MRP2DCM(sigma[:,0])
+
+    om = omega[:,0]
+    om = om.reshape(3,1)
+    omega_R_B = om + GS @ bigOmega0
+
+    aux = IRW @ om + IWs * omega_R_B
+    HS_B[:,0] = aux.T
+    T[0] = 0.5*np.dot(omega[:,0], HS_B[:,0]) + 0.5*IWs*np.dot(omega_R_B.T, omega_R_B)
+
+    H_N[:,0] = BN.T@(HS_B[:,0])
+    
+    angles[:,0]=MRP2EU_ZYX(sigma0)
+    
+    for t_index in range(1, len(t_eval)):
+        dt = t_eval[t_index] - t_eval[t_index - 1]
+        s = sigma[:,t_index-1]
+        o = omega[:,t_index-1]
+        bo = bigOmega[:,t_index-1]
+
+        US = np.array([.1,0.0,0.0,0.0])
+        k1s, k1o, k1bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s, o, bo, GS, US, L)
+        
+        k2s, k2o, k2bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k1s, 
+                                                                          o+0.5*k1o, bo+0.5*k1bo, GS, US,L)
+        
+        k3s, k3o, k3bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k2s, 
+                                                                          o+0.5*k2o, bo+0.5*k2bo, GS,US, L)
+
+        k4s, k4o, k4bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+k3s, 
+                                                                          o+k3o, bo+k3bo, GS, US ,L)
+        
+
+        # body frame angular velocity and MRP update
+        deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
+        deltaomega = (1/6)*(k1o + 2*k2o +  2*k3o + k4o)
+        deltabigOmega = (1/6)*(k1bo + 2*k2bo +  2*k3bo + k4bo)
+        
+        sigma[:,t_index] = sigma[:,t_index - 1]  + deltasigma
+        omega[:,t_index] = omega[:,t_index-1] + deltaomega
+        bigOmega[:,t_index] = bigOmega[:,t_index-1] + deltabigOmega
+
+        if np.linalg.norm(sigma[:,t_index]) > 1:
+            sigma[:,t_index] = MRP2Shadow(sigma[:,t_index])        
+        angles[:,t_index]=MRP2EU_ZYX(sigma[:,t_index])
+
+        omega_R_B = omega[:,t_index] + GS @ bigOmega[:,t_index]
+        HS_B[:,t_index] = IRW @ omega[:,t_index] + IWs * omega_R_B
+
+        TR = 0
+        for i in range(num_RW):   
+            ws = np.dot(GS[:,i],omega[:,t_index])
+            TR += 0.5*(IWs*(ws + bigOmega[i,t_index])**2)
+    
+        HS_B[:,t_index] = IRW @ omega[:,t_index]
+        T[t_index] = 0.5*(Is1*omega[0,t_index]**2 + Is2*omega[1,t_index]**2 + Is3*omega[2,t_index]**2) + TR
+
+        BN = MRP2DCM(sigma[:,t_index])
+
+        H_N[:,t_index] = BN.T @ (HS_B[:,t_index])
+
+    return sigma,omega,angles,bigOmega,H_N,T
