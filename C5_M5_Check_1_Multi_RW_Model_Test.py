@@ -36,7 +36,7 @@ w_BN_B_t0 = np.array([0.01, -0.01, 0.005])*0  # Initial angular velocity of Nano
 
 Is_v = np.array([Is1,Is2,Is3])  # Space craft Inertia Tensor elements
 
-L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
+L = np.array([0.0, 0.0, 0.1])  # constant disturbance torque in N*m   
 
 tstep = 0.1
 tmax = 120+tstep
@@ -44,13 +44,14 @@ time = np.arange(0, tmax, tstep)
 
 Gs = np.array([gs_B_t0[:,0], gs_B_t0[:,1], gs_B_t0[:,2], gs_B_t0[:,3]]).T   
 
-sigma,omega,angles,bigOmega,H_N,T = EOM_MRP_RW_Multi_Integrator(num_RW, Is_v, IWs,s_BN_t0, w_BN_B_t0, 
+sigma,omega,angles,bigOmega,uRW, H_N,T = EOM_MRP_RW_Multi_Integrator(num_RW, Is_v, IWs,s_BN_t0, w_BN_B_t0, 
                                                                                    time, Gs, bigOmega_t0, L)
 
 T_rate_method_1 = np.gradient(T, tstep)
 T_rate_method_2 = np.zeros(len(T))
 for i in range(1, len(T)):
-    T_rate_method_2[i] = omega[:,i].T @ L
+    T_rate_method_2[i] = omega[:,i].T @ L + bigOmega[:,i].T @  uRW[:,i]
+
 
 t_eval = 40
 index_t_eval = np.argmin(np.abs(time - t_eval))

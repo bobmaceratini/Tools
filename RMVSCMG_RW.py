@@ -459,6 +459,7 @@ def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, b
     HS_B = np.zeros((3, N))
     TR = np.zeros((num_RW))
     T = np.zeros((N))
+    uRW = np.zeros((num_RW, N))
 
     # states Initializations
     sigma[:,0] = sigma0
@@ -471,6 +472,7 @@ def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, b
     omega_R_B = om + GS @ bigOmega0
 
     aux = IRW @ om + IWs * omega_R_B
+
     HS_B[:,0] = aux.T
     T[0] = 0.5*np.dot(omega[:,0], HS_B[:,0]) + 0.5*IWs*np.dot(omega_R_B.T, omega_R_B)
 
@@ -484,7 +486,8 @@ def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, b
         o = omega[:,t_index-1]
         bo = bigOmega[:,t_index-1]
 
-        US = np.array([.1,0.0,0.0,0.0])
+        US = np.array([0,0,0.0,0.0])
+        uRW[:,t_index] = US
         k1s, k1o, k1bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s, o, bo, GS, US, L)
         
         k2s, k2o, k2bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k1s, 
@@ -510,19 +513,22 @@ def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, b
             sigma[:,t_index] = MRP2Shadow(sigma[:,t_index])        
         angles[:,t_index]=MRP2EU_ZYX(sigma[:,t_index])
 
-        omega_R_B = omega[:,t_index] + GS @ bigOmega[:,t_index]
-        HS_B[:,t_index] = IRW @ omega[:,t_index] + IWs * omega_R_B
 
         TR = 0
+        HRW_B = np.zeros(3)
         for i in range(num_RW):   
-            ws = np.dot(GS[:,i],omega[:,t_index])
+            gs = GS[:,i]
+            ws = np.dot(gs ,omega[:,t_index])
+            omega_R_B = omega[:,t_index] + gs * bigOmega[i,t_index]
             TR += 0.5*(IWs*(ws + bigOmega[i,t_index])**2)
+            IRW_i = IWs * np.outer(gs,gs)
+            HRW_B += IRW_i @ omega_R_B
     
-        HS_B[:,t_index] = IRW @ omega[:,t_index]
+        HS_B[:,t_index] = IRW @ omega[:,t_index] + HRW_B
         T[t_index] = 0.5*(Is1*omega[0,t_index]**2 + Is2*omega[1,t_index]**2 + Is3*omega[2,t_index]**2) + TR
 
         BN = MRP2DCM(sigma[:,t_index])
 
         H_N[:,t_index] = BN.T @ (HS_B[:,t_index])
 
-    return sigma,omega,angles,bigOmega,H_N,T
+    return sigma,omega,angles,bigOmega,uRW, H_N,T
