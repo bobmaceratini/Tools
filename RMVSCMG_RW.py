@@ -486,18 +486,13 @@ def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, b
         o = omega[:,t_index-1]
         bo = bigOmega[:,t_index-1]
 
-        US = np.array([0,0,0.0,0.0])
+        US = np.array([0.0,0,0.0,0.0])
         uRW[:,t_index] = US
-        k1s, k1o, k1bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s, o, bo, GS, US, L)
-        
-        k2s, k2o, k2bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k1s, 
-                                                                          o+0.5*k1o, bo+0.5*k1bo, GS, US,L)
-        
-        k3s, k3o, k3bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k2s, 
-                                                                          o+0.5*k2o, bo+0.5*k2bo, GS,US, L)
 
-        k4s, k4o, k4bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+k3s, 
-                                                                          o+k3o, bo+k3bo, GS, US ,L)
+        k1s, k1o, k1bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s, o, bo, GS, US, L)
+        k2s, k2o, k2bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k1s, o+0.5*k1o, bo+0.5*k1bo, GS, US,L)
+        k3s, k3o, k3bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k2s, o+0.5*k2o, bo+0.5*k2bo, GS,US, L)
+        k4s, k4o, k4bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+k3s, o+k3o, bo+k3bo, GS, US ,L)
         
 
         # body frame angular velocity and MRP update

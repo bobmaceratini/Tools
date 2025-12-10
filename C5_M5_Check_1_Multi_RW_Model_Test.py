@@ -36,7 +36,7 @@ w_BN_B_t0 = np.array([0.01, -0.01, 0.005])*0  # Initial angular velocity of Nano
 
 Is_v = np.array([Is1,Is2,Is3])  # Space craft Inertia Tensor elements
 
-L = np.array([0.0, 0.0, 0.1])  # constant disturbance torque in N*m   
+L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
 tstep = 0.1
 tmax = 120+tstep
