@@ -120,6 +120,14 @@ def EOM_MRP_VSCMG_Single_Integrator(IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, g
         g = gamma[t_index-1]
         gdot = gamma_dot[t_index-1]
         bo = bigOmega[t_index-1]
+        
+        if np.linalg.norm(sigma[t_index-1]) > 1:
+            sigma[t_index-1] = MRP2Shadow(sigma[t_index-1])
+        if np.linalg.norm(sigma_ref[t_index-1]) > 1:
+            sigma_ref[t_index-1] = MRP2Shadow(sigma_ref[t_index-1])
+            sigmaBR[t_index - 1] = -MRPSum(-sigma[t_index - 1],sigma_ref[t_index - 1])
+        if np.linalg.norm(sigmaBR[t_index-1]) > 1:
+                sigmaBR[t_index-1] = MRP2Shadow(sigmaBR[t_index-1])
 
 
         k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Single_Differential(dt, IS_v,IJ_v, IWs, s, o,
@@ -487,6 +495,137 @@ def EOM_MRP_RW_Multi_Integrator(num_RW, IS_v, IWs, sigma0, omega0, t_eval, GS, b
         bo = bigOmega[:,t_index-1]
 
         US = np.array([0.0,0,0.0,0.0])
+        uRW[:,t_index] = US
+
+        k1s, k1o, k1bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s, o, bo, GS, US, L)
+        k2s, k2o, k2bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k1s, o+0.5*k1o, bo+0.5*k1bo, GS, US,L)
+        k3s, k3o, k3bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+0.5*k2s, o+0.5*k2o, bo+0.5*k2bo, GS,US, L)
+        k4s, k4o, k4bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s+k3s, o+k3o, bo+k3bo, GS, US ,L)
+        
+
+        # body frame angular velocity and MRP update
+        deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
+        deltaomega = (1/6)*(k1o + 2*k2o +  2*k3o + k4o)
+        deltabigOmega = (1/6)*(k1bo + 2*k2bo +  2*k3bo + k4bo)
+        
+        sigma[:,t_index] = sigma[:,t_index - 1]  + deltasigma
+        omega[:,t_index] = omega[:,t_index-1] + deltaomega
+        bigOmega[:,t_index] = bigOmega[:,t_index-1] + deltabigOmega
+
+        if np.linalg.norm(sigma[:,t_index]) > 1:
+            sigma[:,t_index] = MRP2Shadow(sigma[:,t_index])        
+        angles[:,t_index]=MRP2EU_ZYX(sigma[:,t_index])
+
+
+        TR = 0
+        HRW_B = np.zeros(3)
+        for i in range(num_RW):   
+            gs = GS[:,i]
+            ws = np.dot(gs ,omega[:,t_index])
+            omega_R_B = omega[:,t_index] + gs * bigOmega[i,t_index]
+            TR += 0.5*(IWs*(ws + bigOmega[i,t_index])**2)
+            IRW_i = IWs * np.outer(gs,gs)
+            HRW_B += IRW_i @ omega_R_B
+    
+        HS_B[:,t_index] = IRW @ omega[:,t_index] + HRW_B
+        T[t_index] = 0.5*(Is1*omega[0,t_index]**2 + Is2*omega[1,t_index]**2 + Is3*omega[2,t_index]**2) + TR
+
+        BN = MRP2DCM(sigma[:,t_index])
+
+        H_N[:,t_index] = BN.T @ (HS_B[:,t_index])
+
+    return sigma,omega,angles,bigOmega,uRW, H_N,T
+
+def EOM_MRP_RW_Multi_CTRL_Integrator(num_RW, IS_v, IWs, sigma_ref, omega_ref, sigma0, 
+                                     omega0, t_eval, GS, bigOmega0, L):
+
+    K = 5
+    P = 15
+    # Simulation time lenght
+    N=len(t_eval)
+    
+    # Inertia elements assignement
+    Is1,Is2,Is3 = IS_v
+    # Spacecraft inertia tensor
+    IRW = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+
+    # empty output array definition
+    sigma = np.zeros((3, N))
+    omega = np.zeros((3, N))
+    omega_dot = np.zeros((3, N))
+    bigOmega = np.zeros((num_RW, N))
+    angles = np.zeros((3, N))
+    H_N = np.zeros((3, N))
+    HS_B = np.zeros((3, N))
+    TR = np.zeros((num_RW))
+    T = np.zeros((N))
+    uRW = np.zeros((num_RW, N))
+    sigmaBR = np.zeros((3, N))
+
+    # states Initializations
+    sigma[:,0] = sigma0
+    omega[:,0] = omega0
+    
+    BN = MRP2DCM(sigma[:,0])
+
+    om = omega[:,0]
+    om = om.reshape(3,1)
+    omega_R_B = om + GS @ bigOmega0
+
+    aux = IRW @ om + IWs * omega_R_B
+
+    HS_B[:,0] = aux.T
+    T[0] = 0.5*np.dot(omega[:,0], HS_B[:,0]) + 0.5*IWs*np.dot(omega_R_B.T, omega_R_B)
+
+    H_N[:,0] = BN.T@(HS_B[:,0])
+    
+    angles[:,0]=MRP2EU_ZYX(sigma0)
+
+    # Pseudo-inverse control law implementation
+    Gpi = GS.T @ np.linalg.inv(GS @ GS.T)
+    
+    for t_index in range(1, len(t_eval)):
+        dt = t_eval[t_index] - t_eval[t_index - 1]
+        s_ref = sigma_ref[:,t_index-1]
+        s = sigma[:,t_index-1]
+        o_ref = omega_ref[:,t_index-1]
+        o_ref_dot = (omega_ref[:,t_index]-omega_ref[:,t_index-1])/dt
+        o = omega[:,t_index-1]
+        bo = bigOmega[:,t_index-1]
+
+        if np.linalg.norm(s) > 1:
+            s = MRP2Shadow(s)
+
+        if np.linalg.norm(s_ref) > 1:
+            s_ref = MRP2Shadow(s_ref)
+
+        sBR = -MRPSum(-s,s_ref)
+        
+        if np.linalg.norm(sBR) > 1:
+                sBR = MRP2Shadow(BR)
+        sigmaBR[:,t_index - 1] = sBR
+        
+        BR = MRP2DCM(sBR)
+        omega_ref_BR = BR @ o_ref
+        omega_ref_dot_BR = BR @ o_ref_dot
+
+        hs = np.zeros((num_RW))
+
+        for i in range(num_RW):
+            gs = GS[:,i]
+            ws = np.dot(gs,o)
+            hs[i] = IWs*(ws + bo[i])
+
+        term_1= - K * (sBR) 
+        term_2 = - P * (o - o_ref)
+        term_3 = IRW@(omega_ref_dot_BR-np.cross(o,omega_ref_BR))
+        term_4 = tilde(o) @ (IRW @ o - GS @ hs
+                             )
+        Lr = term_1 + term_2 + term_3 + term_4
+
+        US = -Gpi@Lr
+        #US = np.array([0.0,0,0.0,0.0])
+
         uRW[:,t_index] = US
 
         k1s, k1o, k1bo  = EPM_RW_Multi_Differential(num_RW, dt, IRW, IWs, s, o, bo, GS, US, L)

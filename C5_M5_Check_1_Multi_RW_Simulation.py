@@ -31,21 +31,31 @@ gs_B_t0[:,1] = np.array([0,1,0])
 gs_B_t0[:,2] = np.array([0,0,1])
 gs_B_t0[:,3] = np.array([1,1,1])/np.sqrt(3)
 
-s_BN_t0 = np.array([0.1, 0.2, 0.3])*0  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
-w_BN_B_t0 = np.array([0.01, -0.01, 0.005])*0  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
+s_BN_t0 = np.array([0.1, 0.2, 0.3])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
+w_BN_B_t0 = np.array([0.01, -0.01, 0.005])  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
 
 Is_v = np.array([Is1,Is2,Is3])  # Space craft Inertia Tensor elements
-
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
 tstep = 0.1
 tmax = 120+tstep
 time = np.arange(0, tmax, tstep)
 
+# Refeference attitude and angular velocity 
+sigma_ref = np.zeros((3,len(time)))
+sigma_dot_ref = np.zeros((3,len(time)))
+omega_ref = np.zeros((3,len(time)))
+
+for i in range(0,len(time)):
+    omega_ref_a = MRP_InvDifferential(sigma_ref[:,i], sigma_dot_ref[:,i])
+    omega_ref[:,i] = omega_ref_a
+
 Gs = np.array([gs_B_t0[:,0], gs_B_t0[:,1], gs_B_t0[:,2], gs_B_t0[:,3]]).T   
 
-sigma,omega,angles,bigOmega,uRW, H_N,T = EOM_MRP_RW_Multi_CTRL_Integrator(num_RW, Is_v, IWs,s_BN_t0, w_BN_B_t0, 
-                                                                                   time, Gs, bigOmega_t0, L)
+sigma,omega,angles,bigOmega,uRW, H_N,T = EOM_MRP_RW_Multi_CTRL_Integrator(num_RW, Is_v, IWs,sigma_ref,
+                                                                          omega_ref, s_BN_t0, w_BN_B_t0, 
+                                                                        time, Gs, bigOmega_t0, L)
+
 
 T_rate_method_1 = np.gradient(T, tstep)
 T_rate_method_2 = np.zeros(len(T))
@@ -76,6 +86,9 @@ plt.figure(figsize=(10, 6))
 plt.plot(time, sigma[0,:], label='s(1)', color='blue')
 plt.plot(time, sigma[1,:], label='s(2)', color='green')
 plt.plot(time, sigma[2,:], label='s(3)', color='orange')
+plt.plot(time, sigma_ref[0,:],'--', label='s_ref(1)', color='blue')
+plt.plot(time, sigma_ref[1,:],'--',  label='s_ref(2)', color='green')
+plt.plot(time, sigma_ref[2,:],'--',  label='s_ref(3)', color='orange')
 plt.xlabel('Time [s]')
 plt.ylabel('MRP components')
 plt.title('Body MRP, BN')
@@ -88,6 +101,9 @@ plt.figure(figsize=(10, 6))
 plt.plot(time, omega[0,:], label='w(1)', color='blue')
 plt.plot(time, omega[1,:], label='w(2)', color='green')
 plt.plot(time, omega[2,:], label='w(3)', color='orange')
+plt.plot(time, omega_ref[0,:],'--', label='w_ref(1)', color='blue')
+plt.plot(time, omega_ref[1,:],'--', label='w_ref(2)', color='green')
+plt.plot(time, omega_ref[2,:],'--', label='w_ref(3)', color='orange')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
 plt.title('omega')
@@ -141,4 +157,16 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
+plt.figure(figsize=(10, 6))
+plt.plot(time, uRW[0,:], label='u(1)')
+plt.plot(time, uRW[1,:], label='u(2)')
+plt.plot(time, uRW[2,:], label='u(3)')
+plt.plot(time, uRW[3,:], label='u(4)')
+plt.xlabel('Time [s]')
+plt.ylabel('Nm')
+plt.title('RW Torque')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
