@@ -42,9 +42,17 @@ tmax = 120+tstep
 time = np.arange(0, tmax, tstep)
 
 # Refeference attitude and angular velocity 
+s1 = 0.1/4
+s2 = 0.2/4
+s3 = -0.3/4
+f = 0.03
+
 sigma_ref = np.zeros((3,len(time)))
 sigma_dot_ref = np.zeros((3,len(time)))
 omega_ref = np.zeros((3,len(time)))
+
+sigma_ref[:,:] = np.array([s1*np.sin(f*time), s2*np.cos(f*time), s3*np.sin(2*f*time)])
+sigma_dot_ref[:,:] = np.array([s1*f*np.cos(f*time), -s2*f*np.sin(f*time), 2*s3*f*np.cos(2*f*time)])
 
 for i in range(0,len(time)):
     omega_ref_a = MRP_InvDifferential(sigma_ref[:,i], sigma_dot_ref[:,i])
@@ -63,7 +71,7 @@ for i in range(1, len(T)):
     T_rate_method_2[i] = omega[:,i].T @ L + bigOmega[:,i].T @  uRW[:,i]
 
 
-t_eval = 40
+t_eval = 120
 index_t_eval = np.argmin(np.abs(time - t_eval))
 
 H_N_t = H_N[:,index_t_eval]

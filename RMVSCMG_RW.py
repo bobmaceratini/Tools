@@ -606,8 +606,8 @@ def EOM_MRP_RW_Multi_CTRL_Integrator(num_RW, IS_v, IWs, sigma_ref, omega_ref, si
         sigmaBR[:,t_index - 1] = sBR
         
         BR = MRP2DCM(sBR)
-        omega_ref_BR = BR @ o_ref
-        omega_ref_dot_BR = BR @ o_ref_dot
+        omega_ref_BN = BR @ o_ref
+        omega_ref_dot_BN = BR @ o_ref_dot
 
         hs = np.zeros((num_RW))
 
@@ -618,11 +618,13 @@ def EOM_MRP_RW_Multi_CTRL_Integrator(num_RW, IS_v, IWs, sigma_ref, omega_ref, si
 
         term_1= - K * (sBR) 
         term_2 = - P * (o - o_ref)
-        term_3 = IRW@(omega_ref_dot_BR-np.cross(o,omega_ref_BR))
-        term_4 = tilde(o) @ (IRW @ o - GS @ hs
-                             )
+        term_3 = IRW@(omega_ref_dot_BN-np.cross(o,omega_ref_BN))
+        term_4 = tilde(o) @ (IRW @ o + GS @ hs)
+
+
         Lr = term_1 + term_2 + term_3 + term_4
 
+        #L = Lr
         US = -Gpi@Lr
         #US = np.array([0.0,0,0.0,0.0])
 
