@@ -17,7 +17,7 @@ Is3 = 113.0
 IWs = 0.1
 num_RW = 4
 
-W0 = 0.0
+W0 = 14.4
 bigOmega_t0 = np.zeros((4,1)) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0,0] = W0 # 
 bigOmega_t0[1,0] = W0 # 

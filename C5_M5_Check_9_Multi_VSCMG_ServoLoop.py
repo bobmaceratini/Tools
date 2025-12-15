@@ -21,11 +21,12 @@ Jg = 0.03
 IWs = 0.1
 num_gimb = 4
 
+W0 = 14.4*0
 bigOmega_t0 = np.zeros(4) # Initial RW speeds for 4 VSCMGs
-bigOmega_t0[0] = 14.4 # 
-bigOmega_t0[1] = 14.4 # 
-bigOmega_t0[2] = 14.4 # 
-bigOmega_t0[3] = 14.4 # 
+bigOmega_t0[0] = W0 # 
+bigOmega_t0[1] = W0 # 
+bigOmega_t0[2] = W0 # 
+bigOmega_t0[3] = W0 # 
 
 gamma_t0 = np.zeros(4) # Initial Gimbal positions
 gamma_t0[0] = 0/180*np.pi # 
@@ -60,7 +61,7 @@ gt_B_t0[:,3] = np.cross(gg_B_t0[:,3], gs_B_t0[:,3])
 gamma_dot_t0 = np.zeros(num_gimb) # Initial Gimbal speed
 
 s_BN_t0 = np.array([0.1, 0.2, 0.3])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
-w_BN_B_t0 = np.array([0.01, -0.01, 0.005])  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
+w_BN_B_t0 = np.array([0.01, -0.01, 0.005])*0  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
 
 Is_v = np.array([Is1,Is2,Is3])  # Space craft Inertia Tensor elements
 Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
@@ -68,31 +69,26 @@ Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
 tstep = 0.1
-tmax = 30+tstep*2
+tmax = 60+tstep
 time = np.arange(0, tmax, tstep)
+N = len(time)
 
-sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T = EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
+bigOmega_dot_ref = np.zeros((num_gimb,len(time)))
+gamma_dot_ref = np.zeros((num_gimb,len(time)))
+sigma_ref = np.zeros((3,len(time)))
+sigma_dot_ref = np.zeros((3,len(time)))
+omega_ref = np.zeros((3,len(time)))
+
+f1 = 0.02*30
+f2 = 0.03*30
+bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time)*0, np.cos(f1*time)*0, -np.cos(f2*time)*0, -np.cos(f2*time)*0])
+gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time),-np.cos(f2*time)])                                 
+
+
+sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
-                                                                           gamma_dot_t0, bigOmega_t0, L)
+                                                                           gamma_dot_t0, bigOmega_t0, L,bigOmega_dot_ref, gamma_dot_ref)
 
-t_eval = 10
-index_t_eval = np.argmin(np.abs(time - t_eval))
-
-H_N_t = H_N[:,index_t_eval]
-T_t = T[index_t_eval]
-sigma_t = sigma[:,index_t_eval]
-omega_t = omega[:,index_t_eval+1]
-gamma_t = gamma[:,index_t_eval+1]
-gamma_dot_t = gamma_dot[:,index_t_eval]
-bigOmega_t = bigOmega[:,index_t_eval] 
-
-print("At time t =", t_eval, "s:")
-print("\tH_N = [{:.4f},{:.4f},{:.4f}]".format(H_N_t[0], H_N_t[1], H_N_t[2]))    
-print("\tT = {:.4f}".format(T_t))
-print("\tsigma_BN = [{:.4f},{:.4f},{:.4f}]".format(sigma_t[0], sigma_t[1], sigma_t[2]))
-print("\tomega_BN_B=[{:.5f},{:.5f},{:.5f}]".format(omega_t[0], omega_t[1], omega_t[2]))
-print("\tOmega =[{:.4f},{:.4f},{:.4f},{:.4f}]".format(bigOmega_t[0], bigOmega_t[1], bigOmega_t[2], bigOmega_t[3]))
-print("\tgamma = [{:.5f},{:.5f},{:.5f},{:.5f}]".format(gamma_t[0], gamma_t[1], gamma_t[2], gamma_t[3]))
 
 
 t_eval = 30
@@ -101,8 +97,8 @@ index_t_eval = np.argmin(np.abs(time - t_eval))
 H_N_t = H_N[:,index_t_eval]
 T_t = T[index_t_eval]
 sigma_t = sigma[:,index_t_eval]
-omega_t = omega[:,index_t_eval-1]
-gamma_t = gamma[:,index_t_eval-1]
+omega_t = omega[:,index_t_eval]
+gamma_t = gamma[:,index_t_eval]
 gamma_dot_t = gamma_dot[:,index_t_eval]
 bigOmega_t = bigOmega[:,index_t_eval] 
 
@@ -141,7 +137,7 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
-    plt.plot(time, bigOmega[i,:], label=f'Omega{i}')
+    plt.plot(time, bigOmega[i,:], label=f'BigOmega{i}')
 
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
@@ -153,10 +149,34 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
-    plt.plot(time, gamma[i,:], label=f'Omega{i}')
+    plt.plot(time, gamma[i,:], label=f'gamma{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('rad')
 plt.title('gamma')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+for i in range(num_gimb):
+    plt.plot(time, gamma_dot[i,:], label=f'gamma_dot{i}')
+    plt.plot(time, gamma_dot_ref[i,:], '--',label=f'gamma_dot_ref{i}')
+plt.xlabel('Time [s]')
+plt.ylabel('rad/2')
+plt.title('gamma dot')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+for i in range(num_gimb):
+    plt.plot(time, us[i,:], label=f'us{i}')
+    plt.plot(time, ug[i,:], label=f'ug{i}')
+plt.xlabel('Time [s]')
+plt.ylabel('Nm')
+plt.title('torque inputs')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
