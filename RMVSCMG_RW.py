@@ -703,6 +703,8 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
     TG = np.zeros((num_gimb))
     TR = np.zeros((num_gimb))
     T = np.zeros((N))
+    us_ff = np.zeros((num_gimb))
+    ug_ff = np.zeros((num_gimb))
 
     K_gamma = 1.0
 
@@ -750,15 +752,22 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
         g = gamma[:,t_index-1]
         gdot = gamma_dot[:,t_index-1]
         bo = bigOmega[:,t_index-1]
+        
+        for i in range(num_gimb):   
 
+            gv = gamma[i,t_index-1]
+            gs = gs0[:,i]*np.cos(gv-gamma0[i]) + gt0[:,i]*np.sin(gv-gamma0[i])
+            gt = -gs0[:,i]*np.sin(gv-gamma0[i]) + gt0[:,i]*np.cos(gv-gamma0[i])
+            gg = gg0[:,i]
 
-
-        if bigOmega_dot_ref is not None:
-            us_ff = IWs*(bigOmega_dot_ref[:,t_index-1])
-        if gamma_dot_ref is not None:
-            ug_ff= Jg*(gamma_dot_ref[:,t_index] - gamma_dot_ref[:,t_index-1] )/dt
-
-
+            ws = np.dot(gs,omega[:,t_index-1])
+            wt = np.dot(gt,omega[:,t_index-1])
+            wg = np.dot(gg,omega[:,t_index-1])
+        
+            if bigOmega_dot_ref is not None:
+                us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index-1])
+            if gamma_dot_ref is not None:
+                ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,omega_dot[:,t_index-1])) -IWs*bigOmega[i,t_index-1]*wt + (Jt-Js)*ws*wt 
 
         us[:,t_index-1] = us_ff
         ug[:,t_index-1] = ug_ff  + K_gamma*Jg*(gamma_dot_ref[:,t_index-1]-gdot)
@@ -789,6 +798,7 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
         deltagamma = (1/6)*(k1g + 2*k2g +  2*k3g + k4g)
         deltabigOmega = (1/6)*(k1bo + 2*k2bo +  2*k3bo + k4bo)
 
+        omega_dot[:,t_index] = deltaomega/dt
         sigma[:,t_index] = sigma[:,t_index - 1]  + deltasigma
         omega[:,t_index] = omega[:,t_index-1] + deltaomega
         gamma_dot[:,t_index] = gamma_dot[:,t_index-1] + deltagammadot

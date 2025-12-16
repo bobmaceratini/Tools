@@ -21,7 +21,7 @@ Jg = 0.03
 IWs = 0.1
 num_gimb = 4
 
-W0 = 14.4*0
+W0 = 14.4
 bigOmega_t0 = np.zeros(4) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0] = W0 # 
 bigOmega_t0[1] = W0 # 
@@ -61,7 +61,7 @@ gt_B_t0[:,3] = np.cross(gg_B_t0[:,3], gs_B_t0[:,3])
 gamma_dot_t0 = np.zeros(num_gimb) # Initial Gimbal speed
 
 s_BN_t0 = np.array([0.1, 0.2, 0.3])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
-w_BN_B_t0 = np.array([0.01, -0.01, 0.005])*0  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
+w_BN_B_t0 = np.array([0.01, -0.01, 0.005])  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
 
 Is_v = np.array([Is1,Is2,Is3])  # Space craft Inertia Tensor elements
 Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
@@ -69,7 +69,7 @@ Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
 tstep = 0.1
-tmax = 60+tstep
+tmax = 30+tstep
 time = np.arange(0, tmax, tstep)
 N = len(time)
 
@@ -79,9 +79,9 @@ sigma_ref = np.zeros((3,len(time)))
 sigma_dot_ref = np.zeros((3,len(time)))
 omega_ref = np.zeros((3,len(time)))
 
-f1 = 0.02*30
-f2 = 0.03*30
-bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time)*0, np.cos(f1*time)*0, -np.cos(f2*time)*0, -np.cos(f2*time)*0])
+f1 = 0.02
+f2 = 0.03
+bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])
 gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time),-np.cos(f2*time)])                                 
 
 
@@ -89,7 +89,9 @@ sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_CT
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
                                                                            gamma_dot_t0, bigOmega_t0, L,bigOmega_dot_ref, gamma_dot_ref)
 
-
+bigOmega_dot = np.zeros((num_gimb, N))
+for i in range(num_gimb):
+    bigOmega_dot[i,:] = np.gradient(bigOmega[i,:], tstep)
 
 t_eval = 30
 index_t_eval = np.argmin(np.abs(time - t_eval))
@@ -160,10 +162,23 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
+    plt.plot(time, bigOmega_dot[i,:], label=f'bigOmega_dot{i}')
+    plt.plot(time, bigOmega_dot_ref[i,:], '--',label=f'bigOmega_dot_ref{i}')
+plt.xlabel('Time [s]')
+plt.ylabel('rad/s')
+plt.title('bigOmega dot')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+plt.figure(figsize=(10, 6))
+for i in range(num_gimb):
     plt.plot(time, gamma_dot[i,:], label=f'gamma_dot{i}')
     plt.plot(time, gamma_dot_ref[i,:], '--',label=f'gamma_dot_ref{i}')
 plt.xlabel('Time [s]')
-plt.ylabel('rad/2')
+plt.ylabel('rad/s')
 plt.title('gamma dot')
 plt.legend()
 plt.grid(True)
@@ -173,10 +188,20 @@ plt.show()
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
     plt.plot(time, us[i,:], label=f'us{i}')
+plt.xlabel('Time [s]')
+plt.ylabel('Nm')
+plt.title('torque inputs Us')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+for i in range(num_gimb):
     plt.plot(time, ug[i,:], label=f'ug{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('Nm')
-plt.title('torque inputs')
+plt.title('torque inputs Ug')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
