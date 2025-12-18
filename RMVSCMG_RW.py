@@ -265,7 +265,7 @@ def EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_
     Is1,Is2,Is3 = IS_v
     Js,Jt,Jg = IJ_v
     
-    I = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+    Is = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
     Z = np.zeros([num_gimb,num_gimb])
     Id = np.eye(num_gimb)
     
@@ -278,12 +278,16 @@ def EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_
     tau_cs_RHS = np.zeros([num_gimb])
     tau_ct_RHS = np.zeros([num_gimb])
     tau_cg_RHS = np.zeros([num_gimb])
+    tau_g_RHs = np.zeros([num_gimb])
+    tau_bo_RHs = np.zeros([num_gimb])
 
+    I = Is
     # Versor Matrix Calculation
     for i in range(num_gimb):
         gs = gs0[:,i]*np.cos(gamma[i]-gamma0[i]) + gt0[:,i]*np.sin(gamma[i]-gamma0[i])
         gt = -gs0[:,i]*np.sin(gamma[i]-gamma0[i]) + gt0[:,i]*np.cos(gamma[i]-gamma0[i])
         gg = gg0[:,i]
+        I += Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
         GS[:,i]=gs
         GT[:,i]=gt
         GG[:,i]=gg
@@ -293,6 +297,8 @@ def EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_
         tau_cs_RHS[i] = gamma_dot[i]*wt[i]*(Js-Jt+Jg)
         tau_ct_RHS[i] = gamma_dot[i]*ws[i]*(Js-Jt-Jg) + IWs*bigOmega[i]*(wg[i]+gamma_dot[i])
         tau_cg_RHS[i] = -IWs*bigOmega[i]*wt[i]
+        tau_g_RHs[i] = ws[i]*wt[i]*(Js-Jt) + IWs*bigOmega[i]*wt[i]
+        tau_bo_RHs[i] = -IWs*gamma_dot[i]*wt[i]
 
     M11 = I
     M12 = Jg*GG
@@ -309,9 +315,10 @@ def EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_
     M3 = np.hstack([M31,M32,M33])
     M=np.vstack([M1,M2,M3])
 
-    fw = L
-    fgamma = ug
-    fbigOmega = us
+    w_tilde = tilde(omega)
+    fw = -w_tilde @ I @ omega - GS@tau_cs_RHS - GT@tau_ct_RHS - GG@tau_cg_RHS + L
+    fgamma = ug + tau_g_RHs
+    fbigOmega = us +tau_bo_RHs
     f = np.hstack([fw,fgamma,fbigOmega])
 
     Mi = np.linalg.inv(M)
@@ -476,11 +483,11 @@ def EOM_MRP_VSCMG_Multi_Differential(num_gimb,dt, IS_v,IJ_v, IWs, sigma, omega,
     delta_sigma = sigma_dot*dt
 
     #omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
-    #                 bigOmega, gs0, gt0, gg0, gamma0, L,us,ug)
+    #                bigOmega, gs0, gt0, gg0, gamma0, L,us,ug)
 
     omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
-                     bigOmega, gs0, gt0, gg0, gamma0, L,us,ug)
-
+                    bigOmega, gs0, gt0, gg0, gamma0, L,us,ug)
+    
     delta_omega = omega_dot*dt
     delta_gamma_dot = gamma_dot_dot*dt
     delta_bigOmega = bigOmega_dot*dt
