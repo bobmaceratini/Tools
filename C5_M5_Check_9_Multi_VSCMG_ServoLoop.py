@@ -79,10 +79,10 @@ sigma_ref = np.zeros((3,len(time)))
 sigma_dot_ref = np.zeros((3,len(time)))
 omega_ref = np.zeros((3,len(time)))
 
-f1 = 0.02
-f2 = 0.03
-bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])
-gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time),-np.cos(f2*time)])                                 
+f1 = 0.02*0
+f2 = 0.03*0
+bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])*0
+gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])*0                                 
 
 
 sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
@@ -108,7 +108,7 @@ print("At time t =", t_eval, "s:")
 print("\tH_N = [{:.4f},{:.4f},{:.4f}]".format(H_N_t[0], H_N_t[1], H_N_t[2]))    
 print("\tT = {:.4f}".format(T_t))
 print("\tsigma_BN = [{:.4f},{:.4f},{:.4f}]".format(sigma_t[0], sigma_t[1], sigma_t[2]))
-print("\tomega_BN_B=[{:.4f},{:.4f},{:.4f}]".format(omega_t[0], omega_t[1], omega_t[2]))
+print("\tomega_BN_B=[{:.5f},{:.5f},{:.5f}]".format(omega_t[0], omega_t[1], omega_t[2]))
 print("\tOmega =[{:.4f},{:.4f},{:.4f},{:.4f}]".format(bigOmega_t[0], bigOmega_t[1], bigOmega_t[2], bigOmega_t[3]))
 print("\tgamma = [{:.4f},{:.4f},{:.4f},{:.4f}]".format(gamma_t[0], gamma_t[1], gamma_t[2], gamma_t[3]))
 

@@ -222,7 +222,7 @@ def EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot,
         #InertiaTensor_RJ_B += (Js-IWs)*np.outer(gs,gs) + Jt*np.outer(gt,gt)
         InertiaTensor_RJ_B += (Js-IWs)*np.outer(gs,gs) + Jt*np.outer(gt,gt)
 
-        ugs = gs * (us[i] -IWs*wt*gamma_dot[i] + gamma_dot[i]*wt*(Js-Jt+Jg))
+        ugs = gs * (us[i] + gamma_dot[i]*wt*(Js-IWs-Jt+Jg))
         ugt = gt * (gamma_dot[i]*ws*(Js-Jt-Jg) + IWs*bigOmega[i]*(wg+gamma_dot[i]))
         ugg = gg * (ug[i] + ws*wt*(Js-Jt))
 
@@ -251,6 +251,77 @@ def EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot,
 
     return omega_dot, gamma_dot_dot, bigOmega_dot
 
+def EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
+                     bigOmega, gs0, gt0, gg0, gamma0, L, us=None, ug=None):
+    if (us is None):
+        us = np.zeros(num_gimb)
+    if (ug is None):
+        ug = np.zeros(num_gimb)
+
+    omega_dot = np.zeros([3])
+    gamma_dot_dot = np.zeros([num_gimb])
+    bigOmega_dot = np.zeros([num_gimb])
+
+    Is1,Is2,Is3 = IS_v
+    Js,Jt,Jg = IJ_v
+    
+    I = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+    Z = np.zeros([num_gimb,num_gimb])
+    Id = np.eye(num_gimb)
+    
+    GS = np.zeros([3,num_gimb])
+    GT = np.zeros([3,num_gimb])
+    GG = np.zeros([3,num_gimb])
+    ws = np.zeros([num_gimb])
+    wt = np.zeros([num_gimb])
+    wg = np.zeros([num_gimb])
+    tau_cs_RHS = np.zeros([num_gimb])
+    tau_ct_RHS = np.zeros([num_gimb])
+    tau_cg_RHS = np.zeros([num_gimb])
+
+    # Versor Matrix Calculation
+    for i in range(num_gimb):
+        gs = gs0[:,i]*np.cos(gamma[i]-gamma0[i]) + gt0[:,i]*np.sin(gamma[i]-gamma0[i])
+        gt = -gs0[:,i]*np.sin(gamma[i]-gamma0[i]) + gt0[:,i]*np.cos(gamma[i]-gamma0[i])
+        gg = gg0[:,i]
+        GS[:,i]=gs
+        GT[:,i]=gt
+        GG[:,i]=gg
+        ws[i] = np.dot(gs,omega)
+        wt[i] = np.dot(gt,omega)
+        wg[i] = np.dot(gg,omega)
+        tau_cs_RHS[i] = gamma_dot[i]*wt[i]*(Js-Jt+Jg)
+        tau_ct_RHS[i] = gamma_dot[i]*ws[i]*(Js-Jt-Jg) + IWs*bigOmega[i]*(wg[i]+gamma_dot[i])
+        tau_cg_RHS[i] = -IWs*bigOmega[i]*wt[i]
+
+    M11 = I
+    M12 = Jg*GG
+    M13 = IWs*GS
+    M21 = M12.T
+    M22 = Jg*Id
+    M23 = Z
+    M31 = M13.T
+    M32 = M23.T
+    M33 = IWs*Id
+
+    M1 = np.hstack([M11,M12,M13])
+    M2 = np.hstack([M21,M22,M23])
+    M3 = np.hstack([M31,M32,M33])
+    M=np.vstack([M1,M2,M3])
+
+    fw = L
+    fgamma = ug
+    fbigOmega = us
+    f = np.hstack([fw,fgamma,fbigOmega])
+
+    Mi = np.linalg.inv(M)
+    X = Mi@f
+    omega_dot=X[0:3]
+    gamma_dot_dot = X[3:3+num_gimb]
+    bigOmega_dot = X[3+num_gimb:3+num_gimb*2]    
+
+    return omega_dot, gamma_dot_dot, bigOmega_dot
+    
 def EOM_MRP_VSCMG_Multi_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, gt0, gg0, 
                                     gamma0, gamma_dot0, bigOmega0, L):
 
@@ -404,7 +475,10 @@ def EOM_MRP_VSCMG_Multi_Differential(num_gimb,dt, IS_v,IJ_v, IWs, sigma, omega,
     sigma_dot = MRP_Differential(sigma, omega)
     delta_sigma = sigma_dot*dt
 
-    omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
+    #omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Multi(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
+    #                 bigOmega, gs0, gt0, gg0, gamma0, L,us,ug)
+
+    omega_dot, gamma_dot_dot, bigOmega_dot = EOM_VSCMG_Multi_MassMatrixForm(num_gimb,IS_v,IJ_v, IWs, omega, gamma, gamma_dot, 
                      bigOmega, gs0, gt0, gg0, gamma0, L,us,ug)
 
     delta_omega = omega_dot*dt
@@ -706,7 +780,6 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
     us_ff = np.zeros((num_gimb))
     ug_ff = np.zeros((num_gimb))
 
-    K_gamma = 1.0
 
     # states Initializations
     sigma[:,0] = sigma0
@@ -764,13 +837,16 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
             wt = np.dot(gt,omega[:,t_index-1])
             wg = np.dot(gg,omega[:,t_index-1])
         
+            K_gamma = 1.0*0
+
             if bigOmega_dot_ref is not None:
                 us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index-1])
             if gamma_dot_ref is not None:
-                ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,omega_dot[:,t_index-1])) -IWs*bigOmega[i,t_index-1]*wt + (Jt-Js)*ws*wt 
+                ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,omega_dot[:,t_index-1])*0)
+                -IWs*bigOmega[i,t_index-1]*wt*0 + (Jt-Js)*ws*wt*0 
 
         us[:,t_index-1] = us_ff
-        ug[:,t_index-1] = ug_ff  + K_gamma*Jg*(gamma_dot_ref[:,t_index-1]-gdot)
+        ug[:,t_index-1] = ug_ff  + K_gamma*Jg*(gamma_dot_ref[:,t_index-1]-gdot)*0
 
         us_k = us[:,t_index-1]
         ug_k = ug[:,t_index-1]
