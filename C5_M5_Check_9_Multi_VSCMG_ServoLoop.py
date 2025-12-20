@@ -22,22 +22,21 @@ IWs = 0.1
 num_gimb = 4
 
 W0 = 14.4
-bigOmega_t0 = np.zeros(4) # Initial RW speeds for 4 VSCMGs
+bigOmega_t0 = np.zeros(num_gimb) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0] = W0 # 
 bigOmega_t0[1] = W0 # 
 bigOmega_t0[2] = W0 # 
 bigOmega_t0[3] = W0 # 
 
-gamma_t0 = np.zeros(4) # Initial Gimbal positions
+gamma_t0 = np.zeros(num_gimb) # Initial Gimbal positions
 gamma_t0[0] = 0/180*np.pi # 
 gamma_t0[1] = 0/180*np.pi # 
 gamma_t0[2] = 90/180*np.pi # 
 gamma_t0[3] = -90/180*np.pi # 
 
-
-gg_B_t0 = np.zeros((3,4))
-gs_B_t0 = np.zeros((3,4))
-gt_B_t0 = np.zeros((3,4))
+gg_B_t0 = np.zeros((3,num_gimb))
+gs_B_t0 = np.zeros((3,num_gimb))
+gt_B_t0 = np.zeros((3,num_gimb))
 
 tetaG = 54.75/180*np.pi # Gimbal angular position for VSCMG 
 
@@ -45,7 +44,6 @@ gg_B_t0[:,0] = np.array([np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for 
 gg_B_t0[:,1] = np.array([-np.cos(tetaG), 0, np.sin(tetaG)]  )  # Gimbal axis for VSCMG 1
 gg_B_t0[:,2] = np.array([0, np.cos(tetaG), np.sin(tetaG)]  )  # Gimbal axis for VSCMG 2
 gg_B_t0[:,3] = np.array([0, -np.cos(tetaG),  np.sin(tetaG)]  )  # Gimbal axis for VSCMG 3
-
 
 gs_B_t0[:,0] = np.array([0,1,0])
 gs_B_t0[:,1] = np.array([0,-1,0])
@@ -57,18 +55,17 @@ gt_B_t0[:,1] = np.cross(gg_B_t0[:,1], gs_B_t0[:,1])
 gt_B_t0[:,2] = np.cross(gg_B_t0[:,2], gs_B_t0[:,2])
 gt_B_t0[:,3] = np.cross(gg_B_t0[:,3], gs_B_t0[:,3])
 
-
 gamma_dot_t0 = np.zeros(num_gimb) # Initial Gimbal speed
 
 s_BN_t0 = np.array([0.1, 0.2, 0.3])  # Initial MRP attitude of Nano Spacecraft w.r.t. Inertial Frame
-w_BN_B_t0 = np.array([0.01, -0.01, 0.005])  # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
+w_BN_B_t0 = np.array([0.01, -0.01, 0.005]) # Initial angular velocity of Nano Spacecraft w.r.t. Inertial Frame expressed in Body Frame in rad/s    
 
 Is_v = np.array([Is1,Is2,Is3])  # Space craft Inertia Tensor elements
 Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
 
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
-tstep = 0.1
+tstep = 0.01
 tmax = 30+tstep
 time = np.arange(0, tmax, tstep)
 N = len(time)
@@ -79,11 +76,12 @@ sigma_ref = np.zeros((3,len(time)))
 sigma_dot_ref = np.zeros((3,len(time)))
 omega_ref = np.zeros((3,len(time)))
 
-f1 = 0.02*0
-f2 = 0.03*0
-bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])*0
-gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])*0                                 
-
+f1 = 0.02
+f2 = 0.03
+bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])
+gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])                       
+#bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time)])*0
+#gamma_dot_ref[:,:] = np.array([np.sin(f1*time)])                          
 
 sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
@@ -104,6 +102,7 @@ gamma_t = gamma[:,index_t_eval]
 gamma_dot_t = gamma_dot[:,index_t_eval]
 bigOmega_t = bigOmega[:,index_t_eval] 
 
+'''
 print("At time t =", t_eval, "s:")
 print("\tH_N = [{:.4f},{:.4f},{:.4f}]".format(H_N_t[0], H_N_t[1], H_N_t[2]))    
 print("\tT = {:.4f}".format(T_t))
@@ -111,7 +110,7 @@ print("\tsigma_BN = [{:.4f},{:.4f},{:.4f}]".format(sigma_t[0], sigma_t[1], sigma
 print("\tomega_BN_B=[{:.5f},{:.5f},{:.5f}]".format(omega_t[0], omega_t[1], omega_t[2]))
 print("\tOmega =[{:.4f},{:.4f},{:.4f},{:.4f}]".format(bigOmega_t[0], bigOmega_t[1], bigOmega_t[2], bigOmega_t[3]))
 print("\tgamma = [{:.4f},{:.4f},{:.4f},{:.4f}]".format(gamma_t[0], gamma_t[1], gamma_t[2], gamma_t[3]))
-
+'''
 
 plt.figure(figsize=(10, 6))
 plt.plot(time, sigma[0,:], label='s(1)', color='blue')
