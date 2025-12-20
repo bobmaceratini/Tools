@@ -748,10 +748,14 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
         InertiaTensor_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
         InertiaTensor_R_B = IWs*np.outer(gs,gs) 
         
+        ws = np.dot(gs,omega[:,0])
+        wt = np.dot(gt,omega[:,0])
+        wg = np.dot(gg,omega[:,0])
+
         HJ_B[:,i] = InertiaTensor_J_B @ omega_G_B
         HW_B[:,i] = InertiaTensor_R_B @ (omega_R_B)
-        TG[i] = 0.5*np.dot(omega_G_B, HJ_B[:,i])
-        TR[i] = 0.5*np.dot(omega_R_B, HW_B[:,i])
+        TG[i] = 0.5*((Js-IWs)*ws**2 + Jt*wt**2 + Jg*(wg+gamma_dot[i,0])**2)
+        TR[i] = 0.5*(IWs*(ws + bigOmega[i,0])**2)
 
     
     HS_B[:,0] = InertiaTensor_S_B @ omega[:,0]
@@ -770,31 +774,31 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
         s = sigma[:,t_index-1]
         o = omega[:,t_index-1]
         o_dot = omega_dot[:,t_index-1]
-        g = gamma[:,t_index]
+        g = gamma[:,t_index-1]
         gdot = gamma_dot[:,t_index-1]
         bo = bigOmega[:,t_index-1]
         
         for i in range(num_gimb):   
 
             gv = gamma[i,t_index-1]
-            gs = gs0[:,i]*np.cos(gv-gamma0[i]) + gt0[:,i]*np.sin(gv-gamma0[i])
-            gt = -gs0[:,i]*np.sin(gv-gamma0[i]) + gt0[:,i]*np.cos(gv-gamma0[i])
+            gs = gs0[:,i]*np.cos(g[i]-gamma0[i]) + gt0[:,i]*np.sin(g[i]-gamma0[i])
+            gt = -gs0[:,i]*np.sin(g[i]-gamma0[i]) + gt0[:,i]*np.cos(g[i]-gamma0[i])
             gg = gg0[:,i]
 
-            ws = np.dot(gs,omega[:,t_index-1])
-            wt = np.dot(gt,omega[:,t_index-1])
-            wg = np.dot(gg,omega[:,t_index-1])
+            ws = np.dot(gs,o)
+            wt = np.dot(gt,o)
+            wg = np.dot(gg,o)
         
-            K_gamma = 1.0
+            K_gamma = 5
 
             if bigOmega_dot_ref is not None:
+                #us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index] + np.dot(gs,o_dot)+ gamma_dot_ref*[i,t_index]*wt)
                 us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index] + np.dot(gs,o_dot)+ gdot[i]*wt)
             if gamma_dot_ref is not None:
-                ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,o_dot))
-                -IWs*bigOmega[i,t_index]*wt+ (Js-Jt)*ws*wt
+                ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,o_dot))-IWs*bo[i]*wt -(Js-Jt)*ws*wt
 
-        us[:,t_index-1] = us_ff  
-        ug[:,t_index-1] = ug_ff  - K_gamma*Jg*(gdot-gamma_dot_ref[:,t_index])
+        us[:,t_index-1] = (us_ff)
+        ug[:,t_index-1] = (ug_ff  - K_gamma*Jg*(gdot-gamma_dot_ref[:,t_index]))
 
         us_k = us[:,t_index-1]
         ug_k = ug[:,t_index-1]
