@@ -918,11 +918,11 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     us_ff = np.zeros((num_gimb))
     ug_ff = np.zeros((num_gimb))
     det_D1_v = np.zeros((N))
-    D0 = np.zeros((3,2*num_gimb))
-    D1 = np.zeros((3,2*num_gimb))
-    D2 = np.zeros((3,2*num_gimb))
-    D3 = np.zeros((3,2*num_gimb))
-    D4 = np.zeros((3,2*num_gimb))
+    D0 = np.zeros((3,num_gimb))
+    D1 = np.zeros((3,num_gimb))
+    D2 = np.zeros((3,num_gimb))
+    D3 = np.zeros((3,num_gimb))
+    D4 = np.zeros((3,num_gimb))
 
     # states Initializations
     sigma[:,0] = sigma0
@@ -995,13 +995,15 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         det_D1 = np.linalg.det(D1@D1.T)
         delta = det_D1/(hnom**2)
 
+        Q = np.hstack([D0,D])
+
         WeightRW = Ws0*np.exp(-mu*delta)*np.ones((num_gimb))
         WeightCMG = np.ones((num_gimb))
         WeightV = np.array([WeightRW.T, WeightCMG.T])
         WeightV = WeightV.reshape(1,2*num_gimb)
         WeightM = np.diag(WeightV[0,:]) 
 
-        PseudoInv = (WeightM @ D1.T) @ np.linalg.inv(D1 @ WeightM @ D1.T)
+        PseudoInv = (WeightM @ Q.T) @ np.linalg.inv(Q @ WeightM @ Q.T)
         EtaM = -PseudoInv @ Lr_v
         bigOmega_dot_ref[:,t_index] = EtaM[:num_gimb]
         gamma_dot_ref[:,t_index] = EtaM[num_gimb:2*num_gimb]        
@@ -1018,7 +1020,7 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         ug[:,t_index-1] = ug_ff  
         
         deltasigma, deltaomega, deltagamma, deltagammadot, deltabigOmega  = EOM_MRP_VSCMG_Multi_Differential_RG4(num_gimb, dt, IS_v,IJ_v, IWs, s,
-                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0, Lr_v,us_k*0, ug_k*0)
+                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0, L,us_k, ug_k)
         
         omega_dot[:,t_index] = deltaomega/dt
         sigma[:,t_index] = sigma[:,t_index - 1]  + deltasigma

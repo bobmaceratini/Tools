@@ -22,7 +22,7 @@ Jg = 0.03
 IWs = 0.1
 num_gimb = 4
 
-W0 = 14.4*0
+W0 = 14.4
 bigOmega_t0 = np.zeros(num_gimb) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0] = W0 # 
 bigOmega_t0[1] = W0 # 
@@ -179,7 +179,7 @@ plt.figure(figsize=(10, 6))
 
 
 for i in range(num_gimb):
-    #plt.plot(time, gamma_dot[i,:], label=f'gamma_dot{i}')
+    plt.plot(time, gamma_dot[i,:], label=f'gamma_dot{i}')
     plt.plot(time, gamma_dot_ref[i,:], '--',label=f'gamma_dot_ref{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
@@ -192,7 +192,7 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
-    #plt.plot(time, bigOmega_dot[i,:], label=f'gamma_dot{i}')
+    plt.plot(time, bigOmega_dot[i,:], label=f'bigOmegaS_dot{i}')
     plt.plot(time, bigOmega_dot_ref[i,:], '--',label=f'bigOmega_dot_ref{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
