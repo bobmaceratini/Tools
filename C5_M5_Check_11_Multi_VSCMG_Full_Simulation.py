@@ -22,8 +22,6 @@ Jg = 0.03
 IWs = 0.1
 num_gimb = 4
 
-scale = 0.017453292519943295
-
 W0 = 14.4
 bigOmega_t0 = np.zeros(num_gimb) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0] = W0 # 
@@ -70,7 +68,7 @@ Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
 tstep = 0.1
-tmax = 30+tstep*10
+tmax = 150+tstep*10
 time = np.arange(0, tmax, tstep)
 N = len(time)
 
@@ -80,29 +78,24 @@ sigma_ref = np.zeros((3,len(time)))
 sigma_dot_ref = np.zeros((3,len(time)))
 omega_ref = np.zeros((3,len(time)))
 
-f1 = 0.02
-f2 = 0.03
-bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])*scale
-gamma_dot_ref[:,:] = np.array([np.sin(f1*time), np.cos(f1*time), -np.cos(f2*time), -np.cos(f2*time)])*scale                     
-#bigOmega_dot_ref[:,:] = np.array([np.sin(f1*time)])*0
-#gamma_dot_ref[:,:] = np.array([np.sin(f1*time)])                          
+f = 0.03
+s1 = 0.1
+s2 = 0.2
+s3 = -0.3
+sigma_ref[:,:] = 1/4*np.array([s1*np.sin(f*time), s2*np.cos(f*time), s3*np.sin(2*f*time)])
+sigma_dot_ref[:,:] = 1/4*np.array([s1*f*np.cos(f*time), -s2*f*np.sin(f*time), 2*s3*f*np.cos(2*f*time)])
+
+for i in range(0,len(time)):
+    omega_ref_a = MRP_InvDifferential(sigma_ref[:,i], sigma_dot_ref[:,i])
+    omega_ref[:,i] = omega_ref_a
 
 
-#gamma_dot_t0[0] = gamma_dot_ref[0,0] # 
-#gamma_dot_t0[1] = gamma_dot_ref[1,0] #
-#gamma_dot_t0[2] = gamma_dot_ref[2,0] #
-#gamma_dot_t0[3] = gamma_dot_ref[3,0] #
-
-
-sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_SERVO_Integrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
+sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
-                                                                           gamma_dot_t0, bigOmega_t0, L,bigOmega_dot_ref, gamma_dot_ref)
+                                                                           gamma_dot_t0, bigOmega_t0, L, sigma_ref, omega_ref)
 
-bigOmega_dot = np.zeros((num_gimb, N))
-for i in range(num_gimb):
-    bigOmega_dot[i,:] = np.gradient(bigOmega[i,:], tstep)
 
-t_eval = 30
+t_eval = 150
 index_t_eval = np.argmin(np.abs(time - t_eval))
 
 H_N_t = H_N[:,index_t_eval]
@@ -125,8 +118,11 @@ print("\tgamma = [{:.4f},{:.4f},{:.4f},{:.4f}]".format(gamma_t[0], gamma_t[1], g
 
 plt.figure(figsize=(10, 6))
 plt.plot(time, sigma[0,:], label='s(1)', color='blue')
+plt.plot(time, sigma_ref[0,:], '--',label='sref(1)', color='blue')
 plt.plot(time, sigma[1,:], label='s(2)', color='green')
+plt.plot(time, sigma_ref[1,:], '--',label='sref(2)', color='green')
 plt.plot(time, sigma[2,:], label='s(3)', color='orange')
+plt.plot(time, sigma_ref[2,:], '--',label='sref(3)', color='orange')
 plt.xlabel('Time [s]')
 plt.ylabel('MRP components')
 plt.title('Body MRP, BN')
@@ -137,8 +133,11 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 plt.plot(time, omega[0,:], label='w(1)', color='blue')
+plt.plot(time, omega_ref[0,:], '--',label='wref(1)', color='blue')
 plt.plot(time, omega[1,:], label='w(2)', color='green')
+plt.plot(time, omega_ref[1,:], '--',label='wref(2)', color='green')
 plt.plot(time, omega[2,:], label='w(3)', color='orange')
+plt.plot(time, omega_ref[2,:], '--',label='wref(3)', color='orange')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
 plt.title('omega')
@@ -165,18 +164,6 @@ for i in range(num_gimb):
 plt.xlabel('Time [s]')
 plt.ylabel('rad')
 plt.title('gamma')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-plt.figure(figsize=(10, 6))
-for i in range(num_gimb):
-    plt.plot(time, bigOmega_dot[i,:], label=f'bigOmega_dot{i}')
-    plt.plot(time, bigOmega_dot_ref[i,:], '--',label=f'bigOmega_dot_ref{i}')
-plt.xlabel('Time [s]')
-plt.ylabel('rad/s')
-plt.title('bigOmega dot')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()

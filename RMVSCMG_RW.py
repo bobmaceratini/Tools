@@ -694,7 +694,7 @@ def EOM_MRP_RW_Multi_CTRL_Integrator(num_RW, IS_v, IWs, sigma_ref, omega_ref, si
 
     return sigma,omega,angles,bigOmega,uRW, H_N,T
 
-def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, gt0, gg0, 
+def EOM_MRP_VSCMG_Multi_SERVO_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, gt0, gg0, 
                                     gamma0, gamma_dot0, bigOmega0, L, bigOmega_dot_ref=None, gamma_dot_ref=None):
 
     # Simulation time lenght
@@ -876,3 +876,206 @@ def EOM_MRP_VSCMG_Multi_CTRLIntegrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t
         H_N[:,t_index] = BN.T @ (HS_B[:,t_index])
 
     return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T, us, ug
+
+def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, gt0, gg0, 
+                                    gamma0, gamma_dot0, bigOmega0, L, sigma_ref, omega_ref):
+    # Gain parameters
+    K = 5
+    P = 15
+    K_gamma = 5
+    mu = 1e-9
+    Ws0 = 200
+    hnom = IWs*14.4
+
+    # Simulation time lenght
+    N=len(t_eval)
+    # Inertia elements assignement
+    Is1,Is2,Is3 = IS_v
+    Js,Jt,Jg = IJ_v
+    InertiaTensor_S_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+    # empty output array definition
+    sigma = np.zeros((3, N))
+    sigmaBR = np.zeros((3, N))
+    omega = np.zeros((3, N))
+    omega_dot = np.zeros((3, N))
+    gamma = np.zeros((num_gimb, N))
+    gamma_dot = np.zeros((num_gimb, N))
+    bigOmega = np.zeros((num_gimb, N))
+    angles = np.zeros((3, N))
+    us = np.zeros((num_gimb, N))
+    ug = np.zeros((num_gimb, N))
+    H_N = np.zeros((3, N))
+    HS_B = np.zeros((3, N))
+    HJ_B = np.zeros((3,num_gimb))
+    HW_B = np.zeros((3,num_gimb))
+    TG = np.zeros((num_gimb))
+    TR = np.zeros((num_gimb))
+    T = np.zeros((N))
+    us_ff = np.zeros((num_gimb))
+    ug_ff = np.zeros((num_gimb))
+    # states Initializations
+    sigma[:,0] = sigma0
+    omega[:,0] = omega0
+    bigOmega[:,0] = bigOmega0.T
+    BN = MRP2DCM(sigma[:,0])
+
+    
+    I_B, HS_B, TB, Ws, Wt, Wg, GS, GT, GG = Calc_Inertia_Momentum_Energy(num_gimb, IS_v,IJ_v,IWs, gamma[:,0], gamma0, 
+                                                                         gs0, gt0, gg0, gamma_dot[:,0], omega[:,0], bigOmega[:,0]) 
+    H_N[:,0] = HS_B
+    T[0] = TB
+
+    angles[:,0]=MRP2EU_ZYX(sigma0)
+    
+    # Main integration loop
+    for t_index in range(1, len(t_eval)):
+        dt = t_eval[t_index] - t_eval[t_index - 1]
+        s = sigma[:,t_index-1]
+        o = omega[:,t_index-1]
+        o_dot = omega_dot[:,t_index-1]
+        g = gamma[:,t_index-1]
+        gdot = gamma_dot[:,t_index-1]
+        bo = bigOmega[:,t_index-1]
+        s_ref = sigma_ref[:,t_index-1]
+        o_ref = omega_ref[:,t_index-1]
+        o_ref_dot = (omega_ref[:,t_index]-omega_ref[:,t_index-1])/dt
+
+        # MRP attitude control law ----------------------------------------------------------------------
+        if np.linalg.norm(s) > 1:
+            s = MRP2Shadow(s)
+
+        if np.linalg.norm(s_ref) > 1:
+            s_ref = MRP2Shadow(s_ref)
+
+        sBR = -MRPSum(-s,s_ref)
+        
+        if np.linalg.norm(sBR) > 1:
+                sBR = MRP2Shadow(BR)
+        sigmaBR[:,t_index - 1] = sBR
+        
+        BR = MRP2DCM(sBR)
+        omega_ref_BN = BR @ o_ref
+        omega_ref_dot_BN = BR @ o_ref_dot
+
+        term_1= - K * (sBR) 
+        term_2 = - P * (o - o_ref)
+        term_3 = I_B @ (omega_ref_dot_BN - np.cross(o,omega_ref_BN))
+        term_4 = tilde(o) @ I_B @ o 
+
+        term_5 = 0
+        for i in range(num_gimb):
+            term_5 += IWs*bo[i]*(Ws[i]*GT[:,i]-Wt[i]*GS[:,i])
+
+        Lr = term_1 + term_2 + term_3 + term_4 + term_5
+
+        # MRP rate mapping ------------------------------------------------------------------------------
+        D1 = np.zeros((3,N))
+        for i in range(num_gimb):
+            D1[:,i] = (IWs*bo[i]+1/2*Js*Ws[i])*GS[:,i] + 1/2*Jt*Wt[i]*GT[:,i]
+
+        det_D1 = np.linalg.det(D1@D1.T)
+
+        #for i in range(num_gimb):   
+      
+            #if bigOmega_dot_ref is not None:
+            #    us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index] + np.dot(gs,o_dot)+ gdot[i]*wt)
+            #if gamma_dot_ref is not None:
+            #    ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,o_dot))-IWs*bo[i]*wt -(Js-Jt)*ws*wt- K_gamma*Jg*(gdot-gamma_dot_ref[:,t_index])
+
+        #us[:,t_index-1] = us_ff
+        #ug[:,t_index-1] = ug_ff  
+
+        #us_k = us[:,t_index-1]
+        #ug_k = ug[:,t_index-1]
+        us_k = 0
+        ug_k = 0
+        
+        deltasigma, deltaomega, deltagamma, deltagammadot, deltabigOmega  = EOM_MRP_VSCMG_Multi_Differential_RG4(num_gimb, dt, IS_v,IJ_v, IWs, s,
+                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0, Lr,us_k, ug_k)
+        
+        omega_dot[:,t_index] = deltaomega/dt
+        sigma[:,t_index] = sigma[:,t_index - 1]  + deltasigma
+        omega[:,t_index] = omega[:,t_index-1] + deltaomega
+        gamma_dot[:,t_index] = gamma_dot[:,t_index-1] + deltagammadot
+        gamma[:,t_index] = gamma[:,t_index-1] + deltagamma
+        bigOmega[:,t_index] = bigOmega[:,t_index-1] + deltabigOmega
+
+        if np.linalg.norm(sigma[:,t_index]) > 1:
+            sigma[:,t_index] = MRP2Shadow(sigma[:,t_index])        
+        angles[:,t_index]=MRP2EU_ZYX(sigma[:,t_index])
+
+
+        BN = MRP2DCM(sigma[:,t_index])
+
+        I_B, HS_B, TB, Ws, Wt, Wg, GS, GT, GG = Calc_Inertia_Momentum_Energy(num_gimb, IS_v,IJ_v,IWs, gamma[:,t_index], gamma0, 
+                                                                         gs0, gt0, gg0, gamma_dot[:,t_index], omega[:,t_index], bigOmega[:,t_index]) 
+        H_N[:,t_index] = HS_B
+        T[t_index] = TB
+
+    return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T, us, ug
+
+def EOM_MRP_VSCMG_Multi_Differential_RG4(num_gimb, dt, IS_v,IJ_v, IWs, s, o, g, gdot, bo, gs0,gt0,gg0,gamma0,L,us_k, ug_k):
+        
+    k1s, k1o, k1g, k1gdot, k1bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s,
+                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0,L,us_k, ug_k)
+        
+    k2s, k2o, k2g, k2gdot, k2bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s+0.5*k1s, 
+                                                                          o+0.5*k1o, g+0.5*k1g, gdot+0.5*k1gdot,
+                                                                          bo+0.5*k1bo, gs0,gt0,gg0,gamma0,L,us_k, ug_k)
+        
+    k3s, k3o, k3g, k3gdot, k3bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s+0.5*k2s, 
+                                                                          o+0.5*k2o, g+0.5*k2g, gdot+0.5*k2gdot,
+                                                                          bo+0.5*k2bo, gs0,gt0,gg0,gamma0,L,us_k, ug_k)
+
+    k4s, k4o, k4g, k4gdot, k4bo  = EOM_MRP_VSCMG_Multi_Differential(num_gimb, dt, IS_v,IJ_v, IWs, s+k3s, 
+                                                                          o+k3o, g+k3g, gdot+k3gdot,
+                                                                          bo+k3bo, gs0,gt0,gg0,gamma0,L,us_k, ug_k)
+    deltasigma = (1/6)*(k1s + 2*k2s + 2*k3s + k4s)
+    deltaomega = (1/6)*(k1o + 2*k2o +  2*k3o + k4o)
+    deltagammadot = (1/6)*(k1gdot + 2*k2gdot +  2*k3gdot + k4gdot)
+    deltagamma = (1/6)*(k1g + 2*k2g +  2*k3g + k4g)
+    deltabigOmega = (1/6)*(k1bo + 2*k2bo +  2*k3bo + k4bo)
+
+    return deltasigma, deltaomega, deltagamma, deltagammadot, deltabigOmega
+
+
+def Calc_Inertia_Momentum_Energy(num_gimb, Is_v,Ig_v,IWs, gamma, gamma0, gs0, gt0, gg0, gamma_dot, omega, bigOmega):    
+    
+    Js,Jt,Jg = Ig_v
+    Is1,Is2,Is3 = Is_v
+    Ws = np.zeros((num_gimb))
+    Wt = np.zeros((num_gimb))   
+    Wg = np.zeros((num_gimb))
+    GS = np.zeros([3,num_gimb])
+    GT = np.zeros([3,num_gimb])
+    GG = np.zeros([3,num_gimb])
+
+    TG = np.zeros((num_gimb))
+    TR = np.zeros((num_gimb))
+
+    I_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+    for i in range(num_gimb):   
+
+        gs = gs0[:,i]*np.cos(gamma[i]-gamma0[i]) + gt0[:,i]*np.sin(gamma[i]-gamma0[i])
+        gt = -gs0[:,i]*np.sin(gamma[i]-gamma0[i]) + gt0[:,i]*np.cos(gamma[i]-gamma0[i])
+        gg = gg0[:,i]
+
+        I_B += Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
+        
+        Ws[i] = np.dot(gs,omega)
+        Wt[i] = np.dot(gt,omega)
+        Wg[i] = np.dot(gg,omega)
+        
+        TG[i] = 0.5*((Js-IWs)*Ws[i]**2 + Jt*Wt[i]**2 + Jg*(Wg[i]+gamma_dot[i]**2))
+        TR[i] = 0.5*(IWs*(Ws[i] + bigOmega[i])**2)
+
+        GS[:,i] = gs
+        GT[:,i] = gt
+        GG[:,i] = gg
+    
+    HS_B = I_B @ omega
+    Ts = 0.5*(Is1*omega[0]**2 + Is2*omega[1]**2 + Is3*omega[2]**2)
+    TB = Ts + np.sum(TG) + np.sum(TR)
+
+    return I_B, HS_B, TB, Ws, Wt, Wg, GS, GT, GG
+
