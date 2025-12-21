@@ -927,7 +927,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     # states Initializations
     sigma[:,0] = sigma0
     omega[:,0] = omega0
-    bigOmega[:,0] = bigOmega0.T
+    bigOmega[:,0] = bigOmega0
+    gamma[:,0] = gamma0
     BN = MRP2DCM(sigma[:,0])
 
     
@@ -947,8 +948,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         g = gamma[:,t_index-1]
         gdot = gamma_dot[:,t_index-1]
         bo = bigOmega[:,t_index-1]
-        s_ref = sigma_ref[:,t_index-1]
-        o_ref = omega_ref[:,t_index-1]
+        s_ref = sigma_ref[:,t_index]
+        o_ref = omega_ref[:,t_index]
         o_ref_dot = (omega_ref[:,t_index]-omega_ref[:,t_index-1])/dt
 
         # MRP attitude control law ----------------------------------------------------------------------
@@ -969,7 +970,7 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         omega_ref_dot_BN = BR @ o_ref_dot
 
         term_1= - K * (sBR) 
-        term_2 = - P * (o - o_ref)
+        term_2 = - P * (o - omega_ref_BN)
         term_3 = I_B @ (omega_ref_dot_BN - np.cross(o,omega_ref_BN))
         term_4 = tilde(o) @ I_B @ o 
 
