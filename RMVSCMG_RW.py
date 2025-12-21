@@ -879,19 +879,20 @@ def EOM_MRP_VSCMG_Multi_SERVO_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0,
 
 def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, gt0, gg0, 
                                     gamma0, gamma_dot0, bigOmega0, L, sigma_ref, omega_ref):
+    # Inertia elements assignement
+    Is1,Is2,Is3 = IS_v
+    Js,Jt,Jg = IJ_v
+
     # Gain parameters
     K = 5
     P = 15
     K_gamma = 5
-    mu = 1e-9
+    mu = 10**-9
     Ws0 = 200
-    hnom = IWs*14.4
+    hnom = Js*14.4
 
     # Simulation time lenght
     N=len(t_eval)
-    # Inertia elements assignement
-    Is1,Is2,Is3 = IS_v
-    Js,Jt,Jg = IJ_v
     InertiaTensor_S_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
     # empty output array definition
     sigma = np.zeros((3, N))
@@ -901,9 +902,12 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     gamma = np.zeros((num_gimb, N))
     gamma_dot = np.zeros((num_gimb, N))
     bigOmega = np.zeros((num_gimb, N))
+    bigOmega_dot_ref = np.zeros((num_gimb, N))
+    gamma_dot_ref = np.zeros((num_gimb, N))
     angles = np.zeros((3, N))
     us = np.zeros((num_gimb, N))
     ug = np.zeros((num_gimb, N))
+    Lr = np.zeros((3, N))
     H_N = np.zeros((3, N))
     HS_B = np.zeros((3, N))
     HJ_B = np.zeros((3,num_gimb))
@@ -913,6 +917,13 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     T = np.zeros((N))
     us_ff = np.zeros((num_gimb))
     ug_ff = np.zeros((num_gimb))
+    det_D1_v = np.zeros((N))
+    D0 = np.zeros((3,2*num_gimb))
+    D1 = np.zeros((3,2*num_gimb))
+    D2 = np.zeros((3,2*num_gimb))
+    D3 = np.zeros((3,2*num_gimb))
+    D4 = np.zeros((3,2*num_gimb))
+
     # states Initializations
     sigma[:,0] = sigma0
     omega[:,0] = omega0
@@ -966,32 +977,47 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         for i in range(num_gimb):
             term_5 += IWs*bo[i]*(Ws[i]*GT[:,i]-Wt[i]*GS[:,i])
 
-        Lr = term_1 + term_2 + term_3 + term_4 + term_5
+        Lr_v = term_1 + term_2 + term_3 + term_4 + term_5 - L
+        Lr[:,t_index] = Lr_v
 
         # MRP rate mapping ------------------------------------------------------------------------------
-        D1 = np.zeros((3,N))
         for i in range(num_gimb):
-            D1[:,i] = (IWs*bo[i]+1/2*Js*Ws[i])*GS[:,i] + 1/2*Jt*Wt[i]*GT[:,i]
+            D0[:,i] = IWs*GS[:,i]
+            D1[:,i] = (IWs*bo[i]+1/2*Js*Ws[i])*GT[:,i] + 1/2*Js*Wt[i]*GS[:,i]
+            D2[:,i] = 1/2*Jt*(Wt[i]*GS[:,i]+Ws[i]*GT[:,i])
+            D3[:,i] = Jg*(Wt[i]*GS[:,i]-Ws[i]*GT[:,i])
+            D4[:,i] = 1/2*(Js-Jt)*((GT[:,i].T@GS[:,i])*o + (GS[:,i].T@GT[:,i])*o)
 
+        D = D1 - D2 + D3 + D4
         det_D1 = np.linalg.det(D1@D1.T)
+        det_D1_v[t_index] = det_D1
+        det_D1 = np.linalg.det(D1@D1.T)
+        delta = det_D1/(hnom**2)
 
-        #for i in range(num_gimb):   
+        WeightRW = Ws0*np.exp(-mu*delta)*np.ones((num_gimb))
+        WeightCMG = np.ones((num_gimb))
+        WeightV = np.array([WeightRW.T, WeightCMG.T])
+        WeightV = WeightV.reshape(1,2*num_gimb)
+        WeightM = np.diag(WeightV[0,:]) 
+
+        PseudoInv = (WeightM @ D1.T) @ np.linalg.inv(D1 @ WeightM @ D1.T)
+        EtaM = -PseudoInv @ Lr_v
+        bigOmega_dot_ref[:,t_index] = EtaM[:num_gimb]
+        gamma_dot_ref[:,t_index] = EtaM[num_gimb:2*num_gimb]        
+        
+        for i in range(num_gimb):   
       
-            #if bigOmega_dot_ref is not None:
-            #    us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index] + np.dot(gs,o_dot)+ gdot[i]*wt)
-            #if gamma_dot_ref is not None:
-            #    ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(gg,o_dot))-IWs*bo[i]*wt -(Js-Jt)*ws*wt- K_gamma*Jg*(gdot-gamma_dot_ref[:,t_index])
+            us_ff[i] = IWs*(bigOmega_dot_ref[i,t_index] + np.dot(GS[:,i],o_dot)+ gdot[i]*Wt[i])
+            ug_ff[i]= Jg*((gamma_dot_ref[i,t_index] - gamma_dot_ref[i,t_index-1])/dt +np.dot(GG[:,i],o_dot))-IWs*bo[i]*Wt[i] -(Js-Jt)*Ws[i]*Wt[i]
 
-        #us[:,t_index-1] = us_ff
-        #ug[:,t_index-1] = ug_ff  
+        us_k = us_ff
+        ug_k = ug_ff - K_gamma*Jg*(gdot-gamma_dot_ref[:,t_index])
 
-        #us_k = us[:,t_index-1]
-        #ug_k = ug[:,t_index-1]
-        us_k = 0
-        ug_k = 0
+        us[:,t_index-1] = us_ff
+        ug[:,t_index-1] = ug_ff  
         
         deltasigma, deltaomega, deltagamma, deltagammadot, deltabigOmega  = EOM_MRP_VSCMG_Multi_Differential_RG4(num_gimb, dt, IS_v,IJ_v, IWs, s,
-                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0, Lr,us_k, ug_k)
+                                                                            o, g, gdot, bo, gs0,gt0,gg0,gamma0, Lr_v,us_k*0, ug_k*0)
         
         omega_dot[:,t_index] = deltaomega/dt
         sigma[:,t_index] = sigma[:,t_index - 1]  + deltasigma
@@ -1012,7 +1038,7 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         H_N[:,t_index] = HS_B
         T[t_index] = TB
 
-    return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T, us, ug
+    return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T, us, ug, Lr, det_D1_v, bigOmega_dot_ref, gamma_dot_ref
 
 def EOM_MRP_VSCMG_Multi_Differential_RG4(num_gimb, dt, IS_v,IJ_v, IWs, s, o, g, gdot, bo, gs0,gt0,gg0,gamma0,L,us_k, ug_k):
         

@@ -22,7 +22,7 @@ Jg = 0.03
 IWs = 0.1
 num_gimb = 4
 
-W0 = 14.4
+W0 = 14.4*0
 bigOmega_t0 = np.zeros(num_gimb) # Initial RW speeds for 4 VSCMGs
 bigOmega_t0[0] = W0 # 
 bigOmega_t0[1] = W0 # 
@@ -90,7 +90,8 @@ for i in range(0,len(time)):
     omega_ref[:,i] = omega_ref_a
 
 
-sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug = EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
+sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug, Lr, detD1, bigOmega_dot_ref, gamma_dot_ref = EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, 
+                                                                           Is_v,Ig_v,IWs,s_BN_t0, w_BN_B_t0, time, 
                                                                            gs_B_t0, gt_B_t0, gg_B_t0, gamma_t0, 
                                                                            gamma_dot_t0, bigOmega_t0, L, sigma_ref, omega_ref)
 
@@ -106,6 +107,10 @@ gamma_t = gamma[:,index_t_eval]
 gamma_dot_t = gamma_dot[:,index_t_eval]
 bigOmega_t = bigOmega[:,index_t_eval] 
 
+
+bigOmega_dot = np.zeros((num_gimb, N))
+for i in range(num_gimb):
+    bigOmega_dot[i,:] = np.gradient(bigOmega[i,:], tstep)*0
 
 print("At time t =", t_eval, "s:")
 print("\tH_N = [{:.4f},{:.4f},{:.4f}]".format(H_N_t[0], H_N_t[1], H_N_t[2]))    
@@ -171,8 +176,10 @@ plt.show()
 
 
 plt.figure(figsize=(10, 6))
+
+
 for i in range(num_gimb):
-    plt.plot(time, gamma_dot[i,:], label=f'gamma_dot{i}')
+    #plt.plot(time, gamma_dot[i,:], label=f'gamma_dot{i}')
     plt.plot(time, gamma_dot_ref[i,:], '--',label=f'gamma_dot_ref{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
@@ -182,12 +189,14 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
+
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
-    plt.plot(time, us[i,:], label=f'us{i}')
+    #plt.plot(time, bigOmega_dot[i,:], label=f'gamma_dot{i}')
+    plt.plot(time, bigOmega_dot_ref[i,:], '--',label=f'bigOmega_dot_ref{i}')
 plt.xlabel('Time [s]')
-plt.ylabel('Nm')
-plt.title('torque inputs Us')
+plt.ylabel('rad/s')
+plt.title('BigOmeta dot')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
@@ -195,10 +204,22 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
+    plt.plot(time, us[i,:],'--', label=f'us{i}')
     plt.plot(time, ug[i,:], label=f'ug{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('Nm')
-plt.title('torque inputs Ug')
+plt.title('torque inputs Us and Ug')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+for i in range(3):
+        plt.plot(time, Lr[i,:], label=f'Lr{i}')
+plt.xlabel('Time [s]')
+plt.ylabel('Nm')
+plt.title('torque inputs Lr')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
@@ -226,3 +247,12 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
+plt.figure(figsize=(10, 6))
+plt.plot(time, detD1, label='Det(D1 @ D1.T)', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel(',')
+plt.title('Det(D1 @ D1.T)')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
