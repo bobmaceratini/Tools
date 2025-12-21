@@ -934,7 +934,7 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     
     I_B, HS_B, TB, Ws, Wt, Wg, GS, GT, GG = Calc_Inertia_Momentum_Energy(num_gimb, IS_v,IJ_v,IWs, gamma[:,0], gamma0, 
                                                                          gs0, gt0, gg0, gamma_dot[:,0], omega[:,0], bigOmega[:,0]) 
-    H_N[:,0] = HS_B
+    H_N[:,0] =  BN.T @ HS_B
     T[0] = TB
 
     angles[:,0]=MRP2EU_ZYX(sigma0)
@@ -948,8 +948,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         g = gamma[:,t_index-1]
         gdot = gamma_dot[:,t_index-1]
         bo = bigOmega[:,t_index-1]
-        s_ref = sigma_ref[:,t_index]
-        o_ref = omega_ref[:,t_index]
+        s_ref = sigma_ref[:,t_index-1]
+        o_ref = omega_ref[:,t_index-1]
         o_ref_dot = (omega_ref[:,t_index]-omega_ref[:,t_index-1])/dt
 
         # MRP attitude control law ----------------------------------------------------------------------
@@ -976,7 +976,7 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
 
         term_5 = 0
         for i in range(num_gimb):
-            term_5 += IWs*bo[i]*(Ws[i]*GT[:,i]-Wt[i]*GS[:,i])
+            term_5 += IWs*bo[i]*(Wg[i]*GT[:,i]-Wt[i]*GG[:,i])
 
         Lr_v = term_1 + term_2 + term_3 + term_4 + term_5 - L
         Lr[:,t_index] = Lr_v
@@ -1016,8 +1016,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         us_k = us_ff
         ug_k = ug_ff - K_gamma*Jg*(gdot-gamma_dot_ref[:,t_index])
 
-        us[:,t_index-1] = us_ff
-        ug[:,t_index-1] = ug_ff  
+        us[:,t_index] = us_ff
+        ug[:,t_index] = ug_ff  
         
         deltasigma, deltaomega, deltagamma, deltagammadot, deltabigOmega  = EOM_MRP_VSCMG_Multi_Differential_RG4(num_gimb, dt, IS_v,IJ_v, IWs, s,
                                                                             o, g, gdot, bo, gs0,gt0,gg0,gamma0, L,us_k, ug_k)
@@ -1038,7 +1038,7 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
 
         I_B, HS_B, TB, Ws, Wt, Wg, GS, GT, GG = Calc_Inertia_Momentum_Energy(num_gimb, IS_v,IJ_v,IWs, gamma[:,t_index], gamma0, 
                                                                          gs0, gt0, gg0, gamma_dot[:,t_index], omega[:,t_index], bigOmega[:,t_index]) 
-        H_N[:,t_index] = HS_B
+        H_N[:,t_index] = BN.T @ HS_B
         T[t_index] = TB
 
     return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T, us, ug, Lr, det_D1_v, bigOmega_dot_ref, gamma_dot_ref
@@ -1079,10 +1079,14 @@ def Calc_Inertia_Momentum_Energy(num_gimb, Is_v,Ig_v,IWs, gamma, gamma0, gs0, gt
     GT = np.zeros([3,num_gimb])
     GG = np.zeros([3,num_gimb])
 
+    HW_B = np.zeros([3])
+    HJ_B = np.zeros([3])
     TG = np.zeros((num_gimb))
     TR = np.zeros((num_gimb))
 
     I_B = np.array([[Is1,0,0],[0,Is2,0],[0,0,Is3]])
+
+
     for i in range(num_gimb):   
 
         gs = gs0[:,i]*np.cos(gamma[i]-gamma0[i]) + gt0[:,i]*np.sin(gamma[i]-gamma0[i])
@@ -1090,6 +1094,14 @@ def Calc_Inertia_Momentum_Energy(num_gimb, Is_v,Ig_v,IWs, gamma, gamma0, gs0, gt
         gg = gg0[:,i]
 
         I_B += Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
+        I_J_B = Js*np.outer(gs,gs) + Jt*np.outer(gt,gt) + Jg*np.outer(gg,gg) 
+        I_R_B = IWs*np.outer(gs,gs) 
+
+        omega_G_B = omega + gamma_dot[i]*gg
+        omega_R_B = omega + gamma_dot[i]*gg + bigOmega[i]*gs
+        
+        HJ_B += I_J_B @ omega_G_B
+        HW_B += I_R_B @ omega_R_B
         
         Ws[i] = np.dot(gs,omega)
         Wt[i] = np.dot(gt,omega)
@@ -1102,7 +1114,7 @@ def Calc_Inertia_Momentum_Energy(num_gimb, Is_v,Ig_v,IWs, gamma, gamma0, gs0, gt
         GT[:,i] = gt
         GG[:,i] = gg
     
-    HS_B = I_B @ omega
+    HS_B = I_B @ omega + HJ_B + HW_B
     Ts = 0.5*(Is1*omega[0]**2 + Is2*omega[1]**2 + Is3*omega[2]**2)
     TB = Ts + np.sum(TG) + np.sum(TR)
 

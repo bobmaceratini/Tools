@@ -110,7 +110,7 @@ bigOmega_t = bigOmega[:,index_t_eval]
 
 bigOmega_dot = np.zeros((num_gimb, N))
 for i in range(num_gimb):
-    bigOmega_dot[i,:] = np.gradient(bigOmega[i,:], tstep)*0
+    bigOmega_dot[i,:] = np.gradient(bigOmega[i,:], tstep)
 
 print("At time t =", t_eval, "s:")
 print("\tH_N = [{:.4f},{:.4f},{:.4f}]".format(H_N_t[0], H_N_t[1], H_N_t[2]))    
@@ -192,7 +192,7 @@ plt.show()
 
 plt.figure(figsize=(10, 6))
 for i in range(num_gimb):
-    plt.plot(time, bigOmega_dot[i,:], label=f'bigOmegaS_dot{i}')
+    plt.plot(time, bigOmega_dot[i,:], label=f'bigOmega_dot{i}')
     plt.plot(time, bigOmega_dot_ref[i,:], '--',label=f'bigOmega_dot_ref{i}')
 plt.xlabel('Time [s]')
 plt.ylabel('rad/s')
