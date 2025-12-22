@@ -878,7 +878,8 @@ def EOM_MRP_VSCMG_Multi_SERVO_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0,
     return sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T, us, ug
 
 def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, t_eval, gs0, gt0, gg0, 
-                                    gamma0, gamma_dot0, bigOmega0, L, sigma_ref, omega_ref):
+                                    gamma0, gamma_dot0, bigOmega0, L, sigma_ref, omega_ref, aRW = 0.0, aCMG = 0.0,
+                                    bigOmega_f = None, gamma_f = None):
     # Inertia elements assignement
     Is1,Is2,Is3 = IS_v
     Js,Jt,Jg = IJ_v
@@ -890,6 +891,22 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     mu = 10**-9
     Ws0 = 200
     hnom = Js*14.4
+    ke = 10.0
+    aRW = 0.0
+    aCMG = 1.0
+
+    aRW_v = np.ones((1,num_gimb))*aRW
+    aCMG_v = np.ones((1,num_gimb))*aCMG
+    
+    a_v = np.hstack([aRW_v,aCMG_v])
+    A = np.diag(a_v[0,:])
+
+    if gamma_f is None:
+        gamma_f = np.zeros((1,num_gimb))
+
+    if bigOmega_f is None:
+        bigOmega_f = np.zeros((1,num_gimb))
+
 
     # Simulation time lenght
     N=len(t_eval)
@@ -923,6 +940,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     D2 = np.zeros((3,num_gimb))
     D3 = np.zeros((3,num_gimb))
     D4 = np.zeros((3,num_gimb))
+    bigOmega_error = np.zeros((num_gimb,1))
+    gamma_error = np.zeros((num_gimb,1))
 
     # states Initializations
     sigma[:,0] = sigma0
@@ -951,6 +970,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         s_ref = sigma_ref[:,t_index-1]
         o_ref = omega_ref[:,t_index-1]
         o_ref_dot = (omega_ref[:,t_index]-omega_ref[:,t_index-1])/dt
+        bigOmega_error = bo - bigOmega_f
+        gamma_error = g - gamma_f
 
         # MRP attitude control law ----------------------------------------------------------------------
         if np.linalg.norm(s) > 1:
@@ -1005,6 +1026,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
 
         PseudoInv = (WeightM @ Q.T) @ np.linalg.inv(Q @ WeightM @ Q.T)
         EtaM = -PseudoInv @ Lr_v
+
+        
         bigOmega_dot_ref[:,t_index] = EtaM[:num_gimb]
         gamma_dot_ref[:,t_index] = EtaM[num_gimb:2*num_gimb]        
         
