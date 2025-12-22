@@ -892,8 +892,6 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     Ws0 = 200
     hnom = Js*14.4
     ke = 10.0
-    aRW = 0.0
-    aCMG = 1.0
 
     aRW_v = np.ones((1,num_gimb))*aRW
     aCMG_v = np.ones((1,num_gimb))*aCMG
@@ -940,8 +938,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
     D2 = np.zeros((3,num_gimb))
     D3 = np.zeros((3,num_gimb))
     D4 = np.zeros((3,num_gimb))
-    bigOmega_error = np.zeros((num_gimb,1))
-    gamma_error = np.zeros((num_gimb,1))
+    #bigOmega_error = np.zeros((num_gimb,1))
+    #gamma_error = np.zeros((num_gimb,1))
 
     # states Initializations
     sigma[:,0] = sigma0
@@ -972,6 +970,8 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         o_ref_dot = (omega_ref[:,t_index]-omega_ref[:,t_index-1])/dt
         bigOmega_error = bo - bigOmega_f
         gamma_error = g - gamma_f
+        corr_error = np.hstack([bigOmega_error,gamma_error])
+
 
         # MRP attitude control law ----------------------------------------------------------------------
         if np.linalg.norm(s) > 1:
@@ -1025,11 +1025,13 @@ def EOM_MRP_VSCMG_Multi_CTRL_Integrator(num_gimb, IS_v,IJ_v,IWs,sigma0, omega0, 
         WeightM = np.diag(WeightV[0,:]) 
 
         PseudoInv = (WeightM @ Q.T) @ np.linalg.inv(Q @ WeightM @ Q.T)
-        EtaM = -PseudoInv @ Lr_v
+        EtadodM = -PseudoInv @ Lr_v
 
-        
-        bigOmega_dot_ref[:,t_index] = EtaM[:num_gimb]
-        gamma_dot_ref[:,t_index] = EtaM[num_gimb:2*num_gimb]        
+        PseudoInv_NullSpace =  (Q.T) @ np.linalg.inv(Q @ Q.T)
+        EtadotCorrM = ke*(PseudoInv_NullSpace@Q-np.eye(2*num_gimb)) @ A @ corr_error.T
+        EtadodM += EtadotCorrM
+        bigOmega_dot_ref[:,t_index] = EtadodM[:num_gimb]
+        gamma_dot_ref[:,t_index] = EtadodM[num_gimb:2*num_gimb]        
         
         for i in range(num_gimb):   
       

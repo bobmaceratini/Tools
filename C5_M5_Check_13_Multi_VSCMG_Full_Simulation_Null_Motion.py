@@ -68,7 +68,7 @@ Ig_v = np.array([Js,Jt,Jg])  # Gimbal Inertia Tensor elements
 L = np.array([0.0, 0.0, 0.0])  # constant disturbance torque in N*m   
 
 tstep = 0.1
-tmax = 150+tstep*10
+tmax = 600+tstep*10
 time = np.arange(0, tmax, tstep)
 N = len(time)
 
@@ -89,7 +89,7 @@ sigma_ref[2,:] = s_BN_t0[2]*np.ones((1,len(time)))
 
 sigma_dot_ref[:,:] = 1/4*np.array([s1*f*np.cos(f*time), -s2*f*np.sin(f*time), 2*s3*f*np.cos(2*f*time)])*0
 
-bigOmega_f = W0*np.ones((1,4))
+bigOmega_f = W0*np.ones(4)
 gamma_f = np.array([-45.0,45.0,-45.0,45.0])/180*np.pi
 
 for i in range(0,len(time)):
@@ -106,7 +106,7 @@ sigma,omega,angles,gamma_dot,gamma,bigOmega,H_N,T,us,ug, Lr, detD1, bigOmega_dot
                                                                            aRW, aCMG, bigOmega_f, gamma_f)
 
 
-t_eval = 150
+t_eval = 600
 index_t_eval = np.argmin(np.abs(time - t_eval))
 
 H_N_t = H_N[:,index_t_eval]
