@@ -32,9 +32,9 @@ IB1 = 1/12*mB*(3*r**2 + h**2)
 IB2 = IB1
 IB3 = 1/2*mB*r**2
 IB = np.diag([IB1, IB2, IB3])
-IP1 = 1/12*mB*(w**2)
-IP2 = 1/12*mB*(L**2)
-IP3 = 1/12*mB*(L**2+w**2)
+IP1 = 1/12*mP*(w**2)
+IP2 = 1/12*mP*(L**2)
+IP3 = 1/12*mP*(L**2 + w**2)
 IP = np.diag([IP1, IP2, IP3])
 
 #--------------------------------------------------------------------------------------------
@@ -67,13 +67,7 @@ def Calc_V_BP_N(teta, sigma_BN, v_CN, omega_BN_B, teta_dot):
 # Calculation of Spacecarft Kientic Energy
 def Calc_Kinetic_Energy(teta, sigma_BN, r_CN, v_CN, omega_BN, teta_dot):
 
-    v_BN, v_PN = Calc_V_BP_N(teta, sigma_BN, v_CN, omega_BN, teta_dot)
-    
-    #r_BC_tilde = tilde(r_BC)
-    #IBC = IB + mB* r_BC_tilde @ r_BC_tilde.T
-
-    #r_PC_tilde = tilde(r_PC)
-    #IPC = IP + mP* r_PC_tilde @ r_PC_tilde.T
+    v_BN_N, v_PN_N = Calc_V_BP_N(teta, sigma_BN, v_CN, omega_BN, teta_dot)
 
     omega_PN_B = np.array([omega_BN[0],omega_BN[1]+teta_dot,omega_BN[2]])
 
@@ -81,7 +75,7 @@ def Calc_Kinetic_Energy(teta, sigma_BN, r_CN, v_CN, omega_BN, teta_dot):
     PB = PH @ HB
     omega_PN_P = PB @ omega_PN_B
 
-    T_trans = 1/2*mB* np.dot(v_BN,v_BN) + 1/2*mP* np.dot(v_PN,v_PN)
+    T_trans = 1/2*mB* np.dot(v_BN_N,v_BN_N) + 1/2*mP* np.dot(v_PN_N,v_PN_N)
     T_rot = 1/2*omega_BN @ IB @ omega_BN + 1/2*omega_PN_P @ IP @ omega_PN_P
     T = T_trans + T_rot
 
