@@ -180,13 +180,23 @@ def Integrator(q_0,_qdot_0,time, Ts):
 
     return q, q_dot    
 
+def CalcPanelCOM(xB,zB,phi,teta):
+    xP = xB + r_HB_B[0]*np.cos(phi)+r_HB_B[1]*np.sin(phi)-L/2*np.cos(phi+teta)
+    zP = zB - r_HB_B[0]*np.sin(phi)+r_HB_B[1]*np.cos(phi)+L/2*np.sin(phi+teta)
+    return xP, zP
+
+def CalcSpaceCraftCOM(xB,zB,xP,zP):
+    xC = (mB*xB + mP*xP)/(mB+mP)
+    zC = (mB*zB + mP*zP)/(mB+mP)
+    return xC, zC
+
 #--------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------
 # Main Program
 
 # Simulation Configuration and array initialization
 Ts = 0.01
-t = np.arange(0,200,Ts)
+t = np.arange(0,400,Ts)
 Np = len(t)
 
 q_0 = np.zeros([4])
@@ -207,6 +217,11 @@ xB = q[0,:]
 zB = q[1,:]
 phi = q[2,:]
 theta = q[3,:] - phi
+
+xP,zP = CalcPanelCOM(xB,zB,phi,theta)
+xC,zC = CalcSpaceCraftCOM(xB,zB,xP,zP)
+
+rC = np.sqrt(xC**2+zC**2)
 
 #x_t = 2
 #z_t = 3 * np.sin(t)
@@ -232,8 +247,12 @@ plt.show()
 plt.figure(figsize=(10, 6))
 plt.plot(t, xB, label='xB', color='blue')
 plt.plot(t, zB, label='zB', color='red')
+plt.plot(t, xP, label='xP', color='cyan')
+plt.plot(t, zP, label='zP', color='orange')
+plt.plot(t, xC, label='xC', color='green')
+plt.plot(t, zC, label='zC', color='green')
 plt.xlabel('Time [s]')
-plt.title('Hub Center Of Mass Coordinates')
+plt.title('Hub, Panel and Spacecraft Center Of Mass Coordinates')
 plt.ylabel('m')
 plt.legend()
 plt.grid(True)
@@ -251,4 +270,15 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
+plt.figure(figsize=(10, 6))
+plt.plot(t, phi/np.pi*180, label='phi', color='blue')
+plt.plot(t, theta/np.pi*180, label='theta', color='red')
+plt.xlabel('Time [s]')
+plt.title('Hub and Panel Angles')
+plt.ylabel('deg')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
 plt.show()
+
+
