@@ -24,14 +24,15 @@ IP2 = 200
 
 #--------------------------------------------------------------------------------------------
 # Initial Conditions
-teta_0 = 75./180.*np.pi
+teta_0 = 75./180.*np.pi*0
 teta_dot_0 = 0
-phi_0 = 25./180.*np.pi
+phi_0 = 25./180.*np.pi*0
 phi_dot_0 = 0
 xB_0 = 0
 zB_0 = 0
 xB_dot_0 = 0
 zB_dot_0 = 0
+Umax = 0.3
 
 #--------------------------------------------------------------------------------------------
 # Derived Parameters
@@ -122,43 +123,43 @@ def MassMatrix(q,q_dot):
     return M
 
 #--------------------------------------------------------------------------------------------
-def GMatrix(q,q_dot):
+def GMatrix(q,q_dot,u):
     xB, zB, phi, eta = q
     xB_dot, zB_dot, phi_dot, eta_dot = q_dot
     G = np.zeros([4,1])
     G[0,0] = -mP*(phi_dot**2)*r_HB*np.sin(phi-delta) + mP*L/2*(eta_dot**2)*np.cos(eta)
     G[1,0] = -mP*(phi_dot**2)*r_HB*np.cos(phi-delta) - mP*L/2*(eta_dot**2)*np.sin(eta)
-    G[2,0] = mP*L/2*(eta_dot**2)*r_HB*np.cos(eta-phi+delta) - k*(eta-phi)
-    G[3,0] = -mP*L/2*(phi_dot**2)*r_HB*np.cos(eta-phi+delta) + k*(eta-phi)
+    G[2,0] = mP*L/2*(eta_dot**2)*r_HB*np.cos(eta-phi+delta) - k*(eta-phi) - u
+    G[3,0] = -mP*L/2*(phi_dot**2)*r_HB*np.cos(eta-phi+delta) + k*(eta-phi) 
     return G
 
 
 #--------------------------------------------------------------------------------------------
-def CalcQdotdot(q,q_dot):
+def CalcQdotdot(q,q_dot,u):
     xB, zB, phi, eta = q
     xB_dot, zB_dot, phi_dot, eta_dot = q_dot
 
     M = MassMatrix(q,q_dot)
-    G = GMatrix(q,q_dot)
+    G = GMatrix(q,q_dot,u)
     Mi = np.linalg.inv(M)
 
     F = -Mi @ G
     return F.reshape(4,)
 
 #--------------------------------------------------------------------------------------------
-def FunctionEval(q, q_dot):
+def FunctionEval(q, q_dot,u):
 
     xB, zB, phi, eta = q
     xB_dot, zB_dot, phi_dot, eta_dot = q_dot
 
-    F = CalcQdotdot(q,q_dot)
+    F = CalcQdotdot(q,q_dot,u)
     q_dot = q_dot
     q_dot_dot = F
 
     return q_dot, q_dot_dot
     
 #--------------------------------------------------------------------------------------------
-def Integrator(q_0,_qdot_0,time, Ts):
+def Integrator(q_0, q_dot_0, u, time, Ts):
     Np = len(time)
     q = np.zeros([4,Np])
     q_dot = np.zeros([4,Np])
@@ -168,10 +169,10 @@ def Integrator(q_0,_qdot_0,time, Ts):
 
     for index in range(1, Np):
 
-        k1_q, k1_q_dot = FunctionEval(q[:,index-1] , q_dot[:,index-1] )
-        k2_q, k2_q_dot = FunctionEval(q[:,index-1]+0.5*k1_q*Ts , q_dot[:,index-1]+0.5*k1_q_dot*Ts)
-        k3_q, k3_q_dot = FunctionEval(q[:,index-1]+0.5*k2_q*Ts , q_dot[:,index-1]+0.5*k2_q_dot*Ts)
-        k4_q, k4_q_dot = FunctionEval(q[:,index-1]+k3_q*Ts , q_dot[:,index-1]+k3_q_dot*Ts)
+        k1_q, k1_q_dot = FunctionEval(q[:,index-1] , q_dot[:,index-1] ,u[index-1])
+        k2_q, k2_q_dot = FunctionEval(q[:,index-1]+0.5*k1_q*Ts , q_dot[:,index-1]+0.5*k1_q_dot*Ts,u[index-1])
+        k3_q, k3_q_dot = FunctionEval(q[:,index-1]+0.5*k2_q*Ts , q_dot[:,index-1]+0.5*k2_q_dot*Ts,u[index-1])
+        k4_q, k4_q_dot = FunctionEval(q[:,index-1]+k3_q*Ts , q_dot[:,index-1]+k3_q_dot*Ts,u[index-1])
 
         k_q = (k1_q+2*k2_q+2*k3_q+k4_q)/6.0
         k_q_dot = (k1_q_dot+2*k2_q_dot+2*k3_q_dot+k4_q_dot)/6.0
@@ -197,7 +198,7 @@ def CalcSpaceCraftCOM(xB,zB,xP,zP):
 
 # Simulation Configuration and array initialization
 Ts = 0.01
-t = np.arange(0,201,Ts)
+t = np.arange(0,1000,Ts)
 Np = len(t)
 
 q_0 = np.zeros([4])
@@ -212,7 +213,20 @@ q_dot_0[1] = zB_dot_0
 q_dot_0[2] = phi_dot_0
 q_dot_0[3] = teta_dot_0 + phi_dot_0
 
-q, q_dot= Integrator(q_0, q_dot_0, t, Ts)
+u = np.zeros(Np)
+
+for index in range(Np):
+    if (t[index] <=300):
+        u[index] = Umax
+    elif (t[index] <=600):
+        u[index] = -Umax
+    else:
+        u[index] = 0
+
+
+
+
+q, q_dot= Integrator(q_0, q_dot_0, u, t, Ts)
 
 xB = q[0,:]
 zB = q[1,:]
@@ -244,9 +258,19 @@ B_COM, = ax.plot([], [], 'ro', markersize=6)
 
 # ---------------------------------------------------------
 # Animazione
-ani = FuncAnimation(fig, update, range(0, len(t), 5), interval=0, blit=True)
+ani = FuncAnimation(fig, update, range(0, len(t), 10), interval=0, blit=True,repeat=False)
 plt.show()
 
+# ---------------------------------------------------------
+plt.figure(figsize=(10, 6))
+plt.plot(t, u, label='u', color='blue')
+plt.xlabel('Time [s]')
+plt.title('Control Torque')
+plt.ylabel('Nm')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 # ---------------------------------------------------------
 plt.figure(figsize=(10, 6))
 plt.plot(t, xB, label='xB', color='blue')
@@ -286,7 +310,7 @@ plt.tight_layout()
 plt.show()
 
 
-t_eval = 200
+t_eval = 1000
 index_t_eval = np.argmin(np.abs(t - t_eval))
 
 rC_teval = rC[index_t_eval]
@@ -302,10 +326,3 @@ print("\ttheta_phi = [{:.4f},{:.4f}]".format(theta_teval,phi_teval))
 print("\tx_z = [{:.4f},{:.4f}]".format(xB_teval,zB_teval))
 print("\treturn rCN_norm, theta_phi, x_z")
 
-# adjust the return matrix values as needed
-def result():
-    rCN_norm = [0.8659484667125931]  # meters
-    theta_phi = [0.775219567418576, 0.5634557853234858]  # radians
-    x_z = [0.0460288201224309, 0.007860025716668086]  # meters
-
-    return rCN_norm, theta_phi, x_z
