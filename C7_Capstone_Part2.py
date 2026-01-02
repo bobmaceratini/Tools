@@ -21,7 +21,6 @@ d = 0.1
 r_HB_B = np.array([-r,h/2])
 IB2 = 500
 IP2 = 200
-teta_0 = 0
 
 #--------------------------------------------------------------------------------------------
 # Initial Conditions
@@ -36,7 +35,7 @@ zB_dot_0 = 0
 
 #--------------------------------------------------------------------------------------------
 # Derived Parameters
-delta = np.arctan2(r_HB_B[1],r_HB_B[0])
+delta = np.arctan2(-r_HB_B[0],r_HB_B[1])
 r_HB = np.sqrt(np.dot(r_HB_B,r_HB_B))
 
 #--------------------------------------------------------------------------------------------
@@ -106,17 +105,17 @@ def MassMatrix(q,q_dot):
 
     M[1,0] = 0
     M[1,1] = mB+mP
-    M[2,2] = -mP*r_HB*np.sin(phi-delta)
-    M[1,3] = mP*L/2*np.sin(eta)
+    M[1,2] = -mP*r_HB*np.sin(phi-delta)
+    M[1,3] = mP*L/2*np.cos(eta)
 
     M[2,0] = mP*r_HB*np.cos(phi-delta)
     M[2,1] = -mP*r_HB*np.sin(phi-delta)
     M[2,2] = IB2 + mP*r_HB**2
-    M[2,3] = mP*L/2*np.sin(eta-phi+delta)
+    M[2,3] = mP*r_HB*L/2*np.sin(eta-phi+delta)
 
     M[3,0] = mP*L/2*np.sin(eta)
     M[3,1] = mP*L/2*np.cos(eta)
-    M[3,2] = mP*L/2*np.sin(eta-phi+delta)
+    M[3,2] = mP*r_HB*L/2*np.sin(eta-phi+delta)
     M[3,3] = IP2 + mP/4*L**2
     
     return M
@@ -187,7 +186,7 @@ def Integrator(q_0,_qdot_0,time, Ts):
 
 # Simulation Configuration and array initialization
 Ts = 0.01
-t = np.arange(0,100,Ts)
+t = np.arange(0,200,Ts)
 Np = len(t)
 
 q_0 = np.zeros([4])
