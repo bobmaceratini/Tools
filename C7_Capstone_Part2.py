@@ -173,10 +173,10 @@ def Integrator(q_0,_qdot_0,time, Ts):
         k4_q, k4_q_dot = FunctionEval(q[:,index-1]+k3_q , q_dot[:,index-1]+k3_q_dot)
 
         k_q = (k1_q+2*k2_q+2*k3_q+k4_q)/6.0
-        k_q_dot = (k1_q_dot+2*k2_q_dot+2*k3_q_dot+k4_q_dot )/6.0
+        k_q_dot = (k1_q_dot+2*k2_q_dot+2*k3_q_dot+k4_q_dot)/6.0
 
-        q[:,index] = q[:,index-1] + Ts* k_q
-        q_dot[:,index] = q_dot[:,index-1] + Ts* k_q_dot.reshape(4,)
+        q[:,index] = q[:,index-1] + Ts* k1_q
+        q_dot[:,index] = q_dot[:,index-1] + Ts* k1_q_dot.reshape(4,)
 
     return q, q_dot    
 
@@ -196,7 +196,7 @@ def CalcSpaceCraftCOM(xB,zB,xP,zP):
 
 # Simulation Configuration and array initialization
 Ts = 0.01
-t = np.arange(0,400,Ts)
+t = np.arange(0,200,Ts)
 Np = len(t)
 
 q_0 = np.zeros([4])
@@ -282,3 +282,17 @@ plt.tight_layout()
 plt.show()
 
 
+t_eval = 200
+index_t_eval = np.argmin(np.abs(t - t_eval))
+
+rC_teval = rC[index_t_eval]
+xB_teval = xB[index_t_eval]
+zB_teval = zB[index_t_eval]
+phi_teval = phi[index_t_eval]
+theta_teval = theta[index_t_eval]
+
+print("|rCN| @ t = ",rC_teval)
+print("xB @ t = ",xB_teval)
+print("zB @ t = ",zB_teval)
+print("phi @ t = ",phi_teval)
+print("theta @ t = ",theta_teval)
