@@ -51,8 +51,9 @@ def update(frame):
     pts_panel_closed = np.vstack([pts_panel])
     pts = np.vstack([pts_body_closed ,pts_panel_closed])
 
-    rect_patch.set_data(pts[:, 0], pts[:, 1])
-    return rect_patch,
+    rect_patch.set_data(pts[:, 1], pts[:, 0])
+    B_COM.set_data(np.array([xB[frame],xB[frame]]), np.array([zB[frame],zB[frame]]))
+    return rect_patch, B_COM
 
 # Funzione per ottenere i vertici del rettangolo ruotato
 def get_shape(xB, zB, phy,theta):
@@ -168,15 +169,15 @@ def Integrator(q_0,_qdot_0,time, Ts):
     for index in range(1, Np):
 
         k1_q, k1_q_dot = FunctionEval(q[:,index-1] , q_dot[:,index-1] )
-        k2_q, k2_q_dot = FunctionEval(q[:,index-1]+0.5*k1_q , q_dot[:,index-1]+0.5*k1_q_dot)
-        k3_q, k3_q_dot = FunctionEval(q[:,index-1]+0.5*k2_q , q_dot[:,index-1]+0.5*k2_q_dot)
-        k4_q, k4_q_dot = FunctionEval(q[:,index-1]+k3_q , q_dot[:,index-1]+k3_q_dot)
+        k2_q, k2_q_dot = FunctionEval(q[:,index-1]+0.5*k1_q*Ts , q_dot[:,index-1]+0.5*k1_q_dot*Ts)
+        k3_q, k3_q_dot = FunctionEval(q[:,index-1]+0.5*k2_q*Ts , q_dot[:,index-1]+0.5*k2_q_dot*Ts)
+        k4_q, k4_q_dot = FunctionEval(q[:,index-1]+k3_q*Ts , q_dot[:,index-1]+k3_q_dot*Ts)
 
         k_q = (k1_q+2*k2_q+2*k3_q+k4_q)/6.0
         k_q_dot = (k1_q_dot+2*k2_q_dot+2*k3_q_dot+k4_q_dot)/6.0
 
-        q[:,index] = q[:,index-1] + Ts* k1_q
-        q_dot[:,index] = q_dot[:,index-1] + Ts* k1_q_dot.reshape(4,)
+        q[:,index] = q[:,index-1] +  k_q*Ts
+        q_dot[:,index] = q_dot[:,index-1] +  Ts*k_q_dot.reshape(4,)
 
     return q, q_dot    
 
@@ -196,7 +197,7 @@ def CalcSpaceCraftCOM(xB,zB,xP,zP):
 
 # Simulation Configuration and array initialization
 Ts = 0.01
-t = np.arange(0,200,Ts)
+t = np.arange(0,201,Ts)
 Np = len(t)
 
 q_0 = np.zeros([4])
@@ -231,12 +232,15 @@ rC = np.sqrt(xC**2+zC**2)
 # Setup figura
 fig, ax = plt.subplots()
 ax.set_aspect('equal')
-size = 8
+size = 6
 ax.set_xlim(-size, size)
 ax.set_ylim(-size, size)
-
+ax.grid(True)
+ax.set_xlabel("n1-X axis ")
+ax.set_ylabel("n3-Z axis")
 # Patch iniziale del rettangolo
 rect_patch, = ax.plot([], [], 'b-')
+B_COM, = ax.plot([], [], 'ro', markersize=6)
 
 # ---------------------------------------------------------
 # Animazione
@@ -291,8 +295,17 @@ zB_teval = zB[index_t_eval]
 phi_teval = phi[index_t_eval]
 theta_teval = theta[index_t_eval]
 
-print("|rCN| @ t = ",rC_teval)
-print("xB @ t = ",xB_teval)
-print("zB @ t = ",zB_teval)
-print("phi @ t = ",phi_teval)
-print("theta @ t = ",theta_teval)
+
+print("def result():")
+print("\trCN_norm = [{:.4f}]".format(rC_teval))
+print("\ttheta_phi = [{:.4f},{:.4f}]".format(theta_teval,phi_teval))
+print("\tx_z = [{:.4f},{:.4f}]".format(xB_teval,zB_teval))
+print("\treturn rCN_norm, theta_phi, x_z")
+
+# adjust the return matrix values as needed
+def result():
+    rCN_norm = [0.8659484667125931]  # meters
+    theta_phi = [0.775219567418576, 0.5634557853234858]  # radians
+    x_z = [0.0460288201224309, 0.007860025716668086]  # meters
+
+    return rCN_norm, theta_phi, x_z
