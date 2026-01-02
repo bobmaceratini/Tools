@@ -33,7 +33,7 @@ zB_0 = 0
 xB_dot_0 = 0
 zB_dot_0 = 0
 Umax = 0.3
-
+wc = 2*np.pi/310
 #--------------------------------------------------------------------------------------------
 # Derived Parameters
 delta = np.arctan2(-r_HB_B[0],r_HB_B[1])
@@ -214,6 +214,7 @@ q_dot_0[2] = phi_dot_0
 q_dot_0[3] = teta_dot_0 + phi_dot_0
 
 u = np.zeros(Np)
+uf = np.zeros(Np)
 
 for index in range(Np):
     if (t[index] <=300):
@@ -223,10 +224,12 @@ for index in range(Np):
     else:
         u[index] = 0
 
+for index in range(1,Np):
+    uf[index] = uf[index-1] + Ts*wc*(u[index-1]-uf[index-1])
 
 
 
-q, q_dot= Integrator(q_0, q_dot_0, u, t, Ts)
+q, q_dot= Integrator(q_0, q_dot_0, uf, t, Ts)
 
 xB = q[0,:]
 zB = q[1,:]
@@ -264,6 +267,7 @@ plt.show()
 # ---------------------------------------------------------
 plt.figure(figsize=(10, 6))
 plt.plot(t, u, label='u', color='blue')
+plt.plot(t, uf, label='uf', color='red')
 plt.xlabel('Time [s]')
 plt.title('Control Torque')
 plt.ylabel('Nm')
